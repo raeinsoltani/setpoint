@@ -1,0 +1,34 @@
+# Example configuration for running the autoscaler against a real target.
+# (For a no-cluster smoke run use:  python -m autoscaler --smoke)
+
+interval_seconds: 15          # how often to reconcile (like HPA's sync period)
+
+collector:
+  type: prometheus
+  url: http://localhost:9090
+  # PromQL that evaluates to the per-replica scaling signal (e.g. req/s per pod):
+  query: >
+    sum(rate(http_requests_total{app="sample"}[1m]))
+      / count(up{app="sample"} == 1)
+
+policy:
+  name: predictive             # "threshold" or "predictive"
+  target: 100.0                # desired per-replica value of the signal
+  tolerance: 0.10              # 10% dead-band, as in Kubernetes HPA
+  min_replicas: 1
+  max_replicas: 10
+  predictive: true
+  forecaster:
+    horizon: 3                 # steps ahead to forecast
+    alpha: 0.5                 # EWMA smoothing factor
+  stabilization_window_seconds: 90   # anti-flapping downscale window
+
+scaler:
+  type: kubernetes             # "kubernetes" or "inmemory"
+  deployment: sample
+  namespace: default
+  # kubeconfig: /path/to/kubeconfig   # omit to use in-cluster / default config
+
+exporter:
+  enabled: true
+  port: 8000                   # exposes /metrics for Prometheus to scrape
