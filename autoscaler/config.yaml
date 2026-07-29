@@ -1,0 +1,43 @@
+# Local development configuration: Prometheus reached through
+# `kubectl port-forward`, target Deployment reached through the ambient kubeconfig.
+#
+# The in-cluster equivalent lives in deploy/autoscaler/configmap.yaml. Schema is
+# identical to sim/config.yaml so the prototype and this autoscaler are always
+# configured the same way.
+
+interval_seconds: 15          # reconcile period, matching HPA's sync period
+
+collector:
+  type: prometheus            # prometheus | static
+  url: http://localhost:9090
+  timeout_seconds: 5
+  # The scaling signal: requests/second per ready replica. clamp_min guards the
+  # window between the Deployment existing and any pod reporting up, where the
+  # denominator would otherwise be zero.
+  query: >
+    sum(rate(http_requests_total{app="sample"}[1m]))
+      / clamp_min(count(up{app="sample"} == 1), 1)
+
+policy:
+  name: predictive            # threshold | predictive | predictive-per-replica
+  target: 100.0               # desired per-replica value of the signal
+  tolerance: 0.10             # 10% dead-band, as in Kubernetes HPA
+  min_replicas: 1
+  max_replicas: 10
+  forecaster:
+    type: ewma                # ewma | holt
+    horizon: 3                # steps ahead; 3 x 15s = 45s of lead time
+    alpha: 0.5                # EWMA smoothing factor
+  stabilization_window_seconds: 90   # anti-flapping downscale window
+  cooldown_seconds: 0         # minimum gap between scale actions; 0 disables
+  max_step: 0                 # cap on replicas changed per decision; 0 disables
+
+scaler:
+  type: kubernetes            # kubernetes | inmemory
+  deployment: sample
+  namespace: default
+  # kubeconfig: /path/to/kubeconfig   # omit for in-cluster / default config
+
+exporter:
+  enabled: true
+  port: 8000                  # serves /metrics and /healthz

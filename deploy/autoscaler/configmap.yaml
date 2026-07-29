@@ -1,0 +1,51 @@
+# In-cluster configuration for the autoscaler.
+#
+# Schema-identical to sim/config.yaml, so the Python prototype and the Go
+# autoscaler are driven by the same file format and the comparison in the
+# evaluation chapter is not confounded by differing settings.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: prom-autoscaler-config
+  namespace: default
+  labels:
+    app.kubernetes.io/name: prom-autoscaler
+data:
+  config.yaml: |
+    interval_seconds: 15
+
+    collector:
+      type: prometheus
+      # In-cluster Prometheus from the kube-prometheus-stack chart.
+      url: http://prometheus-operated.monitoring.svc:9090
+      timeout_seconds: 5
+      # Requests per second per *ready* replica. Dividing by the number of pods
+      # reporting up (rather than by .spec.replicas) keeps the signal consistent
+      # with the ready-replica base the policy uses.
+      query: >
+        sum(rate(http_requests_total{app="sample"}[1m]))
+          / clamp_min(count(up{app="sample"} == 1), 1)
+
+    policy:
+      name: predictive          # threshold | predictive | predictive-per-replica
+      target: 100.0             # requests/second/replica
+      tolerance: 0.10           # HPA's 10% dead-band
+      min_replicas: 1
+      max_replicas: 10
+      forecaster:
+        type: ewma              # ewma | holt
+        horizon: 3              # steps ahead; 3 x 15s = 45s of lead time
+        alpha: 0.5
+      stabilization_window_seconds: 90
+      # Absent from the prototype; named in the proposal as «شیب‌گیری (Cooldown)».
+      cooldown_seconds: 0
+      max_step: 0
+
+    scaler:
+      type: kubernetes
+      deployment: sample
+      namespace: default
+
+    exporter:
+      enabled: true
+      port: 8000
