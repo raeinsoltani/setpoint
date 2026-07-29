@@ -1,5 +1,5 @@
 BINARY  := bin/autoscaler
-IMAGE   := prom-autoscaler:dev
+IMAGE   := setpoint:dev
 PKG     := ./...
 
 .PHONY: build test cover vet lint image deploy undeploy dry-run clean
@@ -26,7 +26,7 @@ deploy: image
 	kubectl apply -f ../deploy/autoscaler/rbac.yaml
 	kubectl apply -f ../deploy/autoscaler/configmap.yaml
 	kubectl apply -f ../deploy/autoscaler/deployment.yaml
-	kubectl rollout status deployment/prom-autoscaler --timeout=90s
+	kubectl rollout status deployment/setpoint --timeout=90s
 
 undeploy:
 	kubectl delete -f ../deploy/autoscaler/deployment.yaml --ignore-not-found

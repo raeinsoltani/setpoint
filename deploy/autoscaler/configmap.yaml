@@ -6,10 +6,10 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: prom-autoscaler-config
+  name: setpoint-config
   namespace: default
   labels:
-    app.kubernetes.io/name: prom-autoscaler
+    app.kubernetes.io/name: setpoint
 data:
   config.yaml: |
     interval_seconds: 15

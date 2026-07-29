@@ -1,4 +1,4 @@
-module github.com/rsoltani/prom-autoscaler
+module github.com/raeinsoltani/setpoint
 
 go 1.26.4
 

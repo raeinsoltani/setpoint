@@ -15,12 +15,12 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/rsoltani/prom-autoscaler/internal/config"
-	"github.com/rsoltani/prom-autoscaler/internal/controller"
-	"github.com/rsoltani/prom-autoscaler/internal/metrics"
-	"github.com/rsoltani/prom-autoscaler/internal/observability"
-	"github.com/rsoltani/prom-autoscaler/internal/policy"
-	"github.com/rsoltani/prom-autoscaler/internal/scaler"
+	"github.com/raeinsoltani/setpoint/internal/config"
+	"github.com/raeinsoltani/setpoint/internal/controller"
+	"github.com/raeinsoltani/setpoint/internal/metrics"
+	"github.com/raeinsoltani/setpoint/internal/observability"
+	"github.com/raeinsoltani/setpoint/internal/policy"
+	"github.com/raeinsoltani/setpoint/internal/scaler"
 )
 
 func main() {

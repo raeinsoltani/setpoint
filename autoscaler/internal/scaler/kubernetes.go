@@ -73,7 +73,7 @@ func NewKubernetesWithClient(client kubernetes.Interface, opts KubernetesOptions
 		name:       opts.Deployment,
 		namespace:  opts.Namespace,
 		timeout:    opts.Timeout,
-		fieldOwner: "prom-autoscaler",
+		fieldOwner: "setpoint",
 	}
 }
 

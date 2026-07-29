@@ -9,10 +9,10 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/rsoltani/prom-autoscaler/internal/metrics"
-	"github.com/rsoltani/prom-autoscaler/internal/observability"
-	"github.com/rsoltani/prom-autoscaler/internal/policy"
-	"github.com/rsoltani/prom-autoscaler/internal/scaler"
+	"github.com/raeinsoltani/setpoint/internal/metrics"
+	"github.com/raeinsoltani/setpoint/internal/observability"
+	"github.com/raeinsoltani/setpoint/internal/policy"
+	"github.com/raeinsoltani/setpoint/internal/scaler"
 )
 
 // Controller is one reconcile loop over one scale target.

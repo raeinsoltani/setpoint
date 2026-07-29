@@ -8,9 +8,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/rsoltani/prom-autoscaler/internal/metrics"
-	"github.com/rsoltani/prom-autoscaler/internal/policy"
-	"github.com/rsoltani/prom-autoscaler/internal/scaler"
+	"github.com/raeinsoltani/setpoint/internal/metrics"
+	"github.com/raeinsoltani/setpoint/internal/policy"
+	"github.com/raeinsoltani/setpoint/internal/scaler"
 )
 
 var errBoom = errors.New("boom")
