@@ -1,0 +1,16 @@
+# The build context is the repository root, so everything that is not part of the
+# Go module has to be excluded explicitly. sim/.venv alone is ~180MB and would
+# otherwise be uploaded to the daemon on every build.
+.git/
+sim/
+docs/
+admin/
+deploy/
+
+bin/
+coverage.out
+*.test
+Makefile
+Dockerfile
+.dockerignore
+LICENSE

@@ -1,7 +1,15 @@
-# University documents — deliberately untracked.
+# University paperwork — deliberately untracked.
 # The signed proposal carries handwritten signatures, a student ID and a university
-# email; keeping these out of git means they cannot leak through history if this
-# repository is ever pushed to a public remote. The files stay on disk, just untracked.
+# email. This repository is public, so those must never reach history: a leak here
+# cannot be undone by a later delete. The files stay on disk in admin/, untracked.
+#
+# Both rules on purpose. admin/ covers the documents where they live; the blanket
+# extension rules are the net for a document that lands anywhere else — the project
+# root is where these files sat until 2026-07-30, so it is the likely accident.
+# Nothing in this project generates PDF or DOCX (simulator figures are .png), so the
+# net costs nothing today. If a real PDF figure ever needs tracking, negate it
+# explicitly below rather than widening the rule — `git add -f` also works.
+admin/
 *.pdf
 *.docx
 
@@ -12,7 +20,7 @@ __pycache__/
 *.pyc
 
 # Go
-autoscaler/bin/
+bin/
 *.test
 *.out
 

@@ -31,18 +31,18 @@ spec:
         seccompProfile:
           type: RuntimeDefault
       containers:
-        - name: autoscaler
+        - name: setpoint
           image: setpoint:dev
           imagePullPolicy: IfNotPresent
           args:
-            - --config=/etc/autoscaler/config.yaml
+            - --config=/etc/setpoint/config.yaml
             - --log-level=info
           ports:
             - name: metrics
               containerPort: 8000
           volumeMounts:
             - name: config
-              mountPath: /etc/autoscaler
+              mountPath: /etc/setpoint
               readOnly: true
           resources:
             requests:

@@ -10,12 +10,12 @@ RUN go mod download
 
 COPY . .
 # CGO off gives a static binary that runs on a distroless base.
-RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/autoscaler ./cmd/autoscaler
+RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/setpoint ./cmd/setpoint
 
 # Run
 FROM gcr.io/distroless/static-debian12:nonroot
-COPY --from=build /out/autoscaler /autoscaler
+COPY --from=build /out/setpoint /setpoint
 USER 65532:65532
 EXPOSE 8000
-ENTRYPOINT ["/autoscaler"]
-CMD ["--config=/etc/autoscaler/config.yaml"]
+ENTRYPOINT ["/setpoint"]
+CMD ["--config=/etc/setpoint/config.yaml"]

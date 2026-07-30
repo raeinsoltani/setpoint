@@ -1,7 +1,7 @@
 # Local development configuration: Prometheus reached through
 # `kubectl port-forward`, target Deployment reached through the ambient kubeconfig.
 #
-# The in-cluster equivalent lives in deploy/autoscaler/configmap.yaml. Schema is
+# The in-cluster equivalent lives in deploy/setpoint/configmap.yaml. Schema is
 # identical to sim/config.yaml so the prototype and this autoscaler are always
 # configured the same way.
 

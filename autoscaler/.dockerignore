@@ -1,6 +1,0 @@
-bin/
-coverage.out
-*.test
-Makefile
-Dockerfile
-.dockerignore

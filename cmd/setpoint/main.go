@@ -1,8 +1,8 @@
-// Command autoscaler runs the Prometheus-driven autoscaler against a Kubernetes
+// Command setpoint runs the Prometheus-driven autoscaler against a Kubernetes
 // Deployment.
 //
-//	autoscaler --config config.yaml
-//	autoscaler --config config.yaml --dry-run   # decide, log, apply nothing
+//	setpoint --config config.yaml
+//	setpoint --config config.yaml --dry-run   # decide, log, apply nothing
 package main
 
 import (

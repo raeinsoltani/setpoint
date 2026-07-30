@@ -1,11 +1,11 @@
-BINARY  := bin/autoscaler
+BINARY  := bin/setpoint
 IMAGE   := setpoint:dev
 PKG     := ./...
 
 .PHONY: build test cover vet lint image deploy undeploy dry-run clean
 
 build:
-	go build -o $(BINARY) ./cmd/autoscaler
+	go build -o $(BINARY) ./cmd/setpoint
 
 vet:
 	go vet $(PKG)
@@ -23,15 +23,15 @@ image:
 	docker build -t $(IMAGE) .
 
 deploy: image
-	kubectl apply -f ../deploy/autoscaler/rbac.yaml
-	kubectl apply -f ../deploy/autoscaler/configmap.yaml
-	kubectl apply -f ../deploy/autoscaler/deployment.yaml
+	kubectl apply -f deploy/setpoint/rbac.yaml
+	kubectl apply -f deploy/setpoint/configmap.yaml
+	kubectl apply -f deploy/setpoint/deployment.yaml
 	kubectl rollout status deployment/setpoint --timeout=90s
 
 undeploy:
-	kubectl delete -f ../deploy/autoscaler/deployment.yaml --ignore-not-found
-	kubectl delete -f ../deploy/autoscaler/configmap.yaml --ignore-not-found
-	kubectl delete -f ../deploy/autoscaler/rbac.yaml --ignore-not-found
+	kubectl delete -f deploy/setpoint/deployment.yaml --ignore-not-found
+	kubectl delete -f deploy/setpoint/configmap.yaml --ignore-not-found
+	kubectl delete -f deploy/setpoint/rbac.yaml --ignore-not-found
 
 # Decide and log against the real cluster without touching any replica count.
 dry-run: build
