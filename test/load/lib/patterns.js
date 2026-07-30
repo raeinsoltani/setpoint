@@ -53,12 +53,24 @@ export function ramp(t) {
 // a 30s step against a 5s scrape interval and a 1m rate() window, the staircase is
 // indistinguishable from the smooth curve in what Prometheus reports for `diurnal`
 // and `ramp` anyway.
+// TIME_SCALE compresses the time axis for smoke-testing a script — TIME_SCALE=10
+// turns a 30-minute run into 3 minutes with the identical sequence of load levels.
+//
+// NEVER use it for a measured run, and the reason is not tidiness. Compressing time
+// changes the ratio between how fast load moves and how long a pod takes to become
+// ready, and that ratio *is* the phenomenon under study: prediction pays only
+// because pods are slow relative to load changes (Phase 7.2 sweeps exactly this
+// variable). A compressed run makes every arm look worse in a way that has nothing
+// to do with its policy. Use it to check a script drives traffic; never to compare.
+const TIME_SCALE = Number(__ENV.TIME_SCALE || 1);
+
 export function stagesFrom(pattern, stepSeconds = 30) {
+  const held = stepSeconds / TIME_SCALE;
   const stages = [];
   for (let t = 0; t < DURATION; t += stepSeconds) {
     const rps = Math.round(pattern(t));
     stages.push({ target: rps, duration: '0s' });
-    stages.push({ target: rps, duration: `${stepSeconds}s` });
+    stages.push({ target: rps, duration: `${held}s` });
   }
   return stages;
 }

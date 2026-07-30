@@ -61,6 +61,11 @@ var (
 		Name: "http_requests_in_flight",
 		Help: "Requests currently being served.",
 	})
+
+	shed = prometheus.NewCounter(prometheus.CounterOpts{
+		Name: "http_requests_shed_total",
+		Help: "Requests rejected with 503 because the concurrency limit was reached.",
+	})
 )
 
 // sink defeats dead-code elimination in the CPU burner: without an observable
@@ -73,13 +78,17 @@ func main() {
 		addr    = flag.String("addr", ":8080", "listen address")
 		cpuMS   = flag.Float64("cpu-ms", envFloat("WORK_CPU_MS", 2), "CPU milliseconds burned per request")
 		sleepMS = flag.Float64("sleep-ms", envFloat("WORK_SLEEP_MS", 0), "non-CPU latency added per request")
+		// 16 in flight at 2ms of CPU each bounds queueing latency to tens of
+		// milliseconds on a single core, which keeps a probe and a scrape
+		// answerable no matter how much load is offered. See work().
+		maxConc = flag.Int("max-concurrent", int(envFloat("WORK_MAX_CONCURRENT", 16)), "in-flight work requests before shedding with 503")
 	)
 	flag.Parse()
 
 	log := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 
 	registry := prometheus.NewRegistry()
-	registry.MustRegister(requests, duration, inFlight)
+	registry.MustRegister(requests, duration, inFlight, shed)
 	// Process and Go collectors give the report a second, independent view of CPU
 	// use to cross-check the calibration above against what the container actually
 	// burns.
@@ -94,7 +103,7 @@ func main() {
 		w.WriteHeader(http.StatusOK)
 		fmt.Fprintln(w, "ok")
 	})
-	mux.HandleFunc("/", work(*cpuMS, *sleepMS))
+	mux.HandleFunc("/", work(*cpuMS, *sleepMS, *maxConc))
 
 	srv := &http.Server{
 		Addr:              *addr,
@@ -109,7 +118,8 @@ func main() {
 		log.Info("sample-app listening",
 			slog.String("addr", *addr),
 			slog.Float64("cpu_ms_per_request", *cpuMS),
-			slog.Float64("sleep_ms_per_request", *sleepMS))
+			slog.Float64("sleep_ms_per_request", *sleepMS),
+			slog.Int("max_concurrent", *maxConc))
 		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			log.Error("server failed", slog.Any("error", err))
 			os.Exit(1)
@@ -131,9 +141,47 @@ func main() {
 // work handles a request by burning a known amount of CPU, optionally adding
 // non-CPU latency. Both are overridable per request via ?cpu_ms= and ?sleep_ms=,
 // which is how the per-replica capacity is probed when calibrating.
-func work(defaultCPUMS, defaultSleepMS float64) http.HandlerFunc {
+//
+// Concurrency is bounded and excess requests are shed with 503 immediately. This is
+// not a nicety — without it the experiment eats itself:
+//
+// Offered 1300 req/s against a replica whose capacity is ~200, Go will happily run
+// thousands of goroutines all burning CPU. On a container limited to 400m there is
+// no CPU left for anything else, so /healthz stops answering within its probe
+// timeout and /metrics stops answering within its scrape timeout. Three things then
+// happen at once: the readiness probe fails so readyReplicas drops to zero, the
+// liveness probe fails so kubelet *restarts the container*, and the scrape times out
+// so rate(http_requests_total) goes stale and returns nothing. The collector reads
+// the empty result as zero load — correctly, since an empty vector legitimately
+// means no pods are up — and the autoscaler holds the fleet at min_replicas while
+// load climbs. Observed live on 2026-07-30: stuck at 1 replica under a 1300 req/s
+// spike, with the container restarting three times.
+//
+// So an autoscaler driven by application metrics goes blind exactly when it is
+// needed most, unless the application stays observable under overload. Bounded
+// concurrency with fast rejection is what keeps it observable: shed requests are
+// still counted, so offered load remains measurable, and there is always CPU left to
+// answer a probe and a scrape.
+func work(defaultCPUMS, defaultSleepMS float64, maxConcurrent int) http.HandlerFunc {
+	sem := make(chan struct{}, maxConcurrent)
+
 	return func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
+
+		select {
+		case sem <- struct{}{}:
+			defer func() { <-sem }()
+		default:
+			// Shed immediately rather than queueing. Counted in
+			// http_requests_total, so the autoscaler's view of offered load is
+			// unaffected by whether the request was served or rejected.
+			shed.Inc()
+			requests.WithLabelValues("/", "503").Inc()
+			duration.WithLabelValues("/").Observe(time.Since(start).Seconds())
+			w.WriteHeader(http.StatusServiceUnavailable)
+			return
+		}
+
 		inFlight.Inc()
 		defer inFlight.Dec()
 

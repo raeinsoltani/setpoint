@@ -45,33 +45,66 @@ spec:
               value: "2"
             - name: WORK_SLEEP_MS
               value: "0"
+            # Bound in-flight work so /healthz and /metrics stay answerable under
+            # any offered load. Without this the pod goes dark under overload and
+            # the autoscaler loses the signal it needs — see work() in
+            # cmd/sample-app/main.go.
+            - name: WORK_MAX_CONCURRENT
+              value: "16"
           resources:
             requests:
               cpu: 200m
               memory: 32Mi
             limits:
-              # Twice the request: a replica at target sits at 100% of its request
-              # and has headroom to absorb a burst while new pods start, rather
-              # than being throttled into a latency spike the moment load rises.
-              cpu: 400m
+              # 5x the request, deliberately generous, and the reason matters.
+              #
+              # At 400m the CFS quota is 40ms per 100ms period, so under sustained
+              # overload the container is frozen for 60% of wall-clock time. It then
+              # cannot answer /healthz within a probe timeout or /metrics within a
+              # scrape timeout, however fast it sheds work — and once the scrape
+              # fails, rate(http_requests_total) goes stale, the autoscaler reads an
+              # empty result as zero load, and the fleet never grows. Observed live
+              # on 2026-07-30: stuck at 1 replica through an entire 1300 req/s spike.
+              #
+              # This costs nothing in comparison fairness: HPA's utilization maths
+              # uses the CPU *request*, not the limit, so the calibration that makes
+              # hpa-cpu and ours-threshold aim at the same setpoint is untouched. The
+              # limit only decides how gracefully a replica degrades while it waits
+              # for company.
+              #
+              # 20 replicas request 4 of the node's 14 CPU; limits oversubscribe, as
+              # limits are meant to.
+              cpu: 1000m
               memory: 64Mi
           # Readiness is what the autoscaler's formula base counts, so this probe
-          # decides when a new replica starts "counting". Keep it tight: a slow
-          # probe would be indistinguishable from slow pod startup and would
-          # contaminate the startup-latency sweep in Phase 7.2.
+          # decides when a new replica starts "counting". Kept quick, because a slow
+          # probe is indistinguishable from slow pod startup and would contaminate
+          # the startup-latency sweep in Phase 7.2 — but not so tight that a busy
+          # replica is declared unready, which would drop readyReplicas to zero and
+          # leave the policy with no formula base.
           readinessProbe:
             httpGet:
               path: /healthz
               port: http
             initialDelaySeconds: 1
             periodSeconds: 2
-            timeoutSeconds: 1
+            timeoutSeconds: 3
+            failureThreshold: 3
+          # A liveness probe must detect a *deadlocked* process, never a slow one.
+          # With timeoutSeconds 1 this probe failed under a 1300 req/s spike and
+          # kubelet restarted the container three times, which made the overload
+          # worse and destroyed the metric history the autoscaler was reading.
+          # Restarting a busy process is almost never the right response; these
+          # numbers tolerate ~90s of unresponsiveness before concluding the process
+          # is genuinely stuck.
           livenessProbe:
             httpGet:
               path: /healthz
               port: http
-            initialDelaySeconds: 5
-            periodSeconds: 10
+            initialDelaySeconds: 10
+            periodSeconds: 15
+            timeoutSeconds: 5
+            failureThreshold: 6
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true
