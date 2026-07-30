@@ -31,7 +31,7 @@ data:
       target: 100.0             # requests/second/replica
       tolerance: 0.10           # HPA's 10% dead-band
       min_replicas: 1
-      max_replicas: 10
+      max_replicas: 20
       forecaster:
         type: ewma              # ewma | holt
         horizon: 3              # steps ahead; 3 x 15s = 45s of lead time

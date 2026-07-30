@@ -261,7 +261,7 @@ func TestNewRejectsIncompleteOptions(t *testing.T) {
 		Interval:  time.Second,
 	}
 	tests := []struct {
-		name  string
+		name   string
 		mutate func(*Options)
 	}{
 		{"no collector", func(o *Options) { o.Collector = nil }},

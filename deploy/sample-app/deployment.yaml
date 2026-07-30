@@ -1,0 +1,116 @@
+# The workload under test. Named `sample` in namespace `default` to match
+# scaler.deployment in config.yaml and deploy/setpoint/configmap.yaml.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sample
+  namespace: default
+  labels:
+    app: sample
+spec:
+  # Starts at 1 so every experiment begins from the same state: the autoscaler's
+  # job is to find the right number, and seeding it near the answer would flatter
+  # every arm equally but hide reaction time, which is metric one in the proposal.
+  replicas: 1
+  selector:
+    matchLabels:
+      app: sample
+  template:
+    metadata:
+      labels:
+        app: sample
+    spec:
+      # Spread replicas across nodes where there are nodes to spread across. On the
+      # single-node dev cluster this is a no-op; on kind with workers it stops all
+      # ten replicas landing on one kubelet and contending for the same CPU, which
+      # would corrupt the latency figures.
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              app: sample
+      containers:
+        - name: sample-app
+          image: sample-app:dev
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8080
+          env:
+            # 2ms of CPU per request x 100 req/s target = 200m, which is exactly
+            # the CPU request below. See the calibration note in cmd/sample-app.
+            - name: WORK_CPU_MS
+              value: "2"
+            - name: WORK_SLEEP_MS
+              value: "0"
+          resources:
+            requests:
+              cpu: 200m
+              memory: 32Mi
+            limits:
+              # Twice the request: a replica at target sits at 100% of its request
+              # and has headroom to absorb a burst while new pods start, rather
+              # than being throttled into a latency spike the moment load rises.
+              cpu: 400m
+              memory: 64Mi
+          # Readiness is what the autoscaler's formula base counts, so this probe
+          # decides when a new replica starts "counting". Keep it tight: a slow
+          # probe would be indistinguishable from slow pod startup and would
+          # contaminate the startup-latency sweep in Phase 7.2.
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 1
+            periodSeconds: 2
+            timeoutSeconds: 1
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            runAsUser: 65532
+            capabilities:
+              drop: ["ALL"]
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: sample
+  namespace: default
+  labels:
+    # This label is promoted onto every scraped series by the ServiceMonitor's
+    # targetLabels, which is what makes `http_requests_total{app="sample"}` and
+    # `up{app="sample"}` in the autoscaler's PromQL resolve. Removing it silently
+    # empties the query and the autoscaler reads zero load.
+    app: sample
+spec:
+  # LoadBalancer, not ClusterIP, and this is not cosmetic.
+  #
+  # `kubectl port-forward svc/sample` forwards to a *single pod* — it resolves one
+  # endpoint and holds it. Driving load that way caps every experiment at one
+  # replica's capacity (~200 req/s here), so the fleet would scale up and the
+  # offered load would not follow, and every arm would look identical because none
+  # of them was ever actually loaded. A LoadBalancer service goes through kube-proxy
+  # and balances across all ready endpoints, which is the behaviour the evaluation
+  # needs.
+  #
+  # Docker Desktop and kind both surface LoadBalancer services on localhost, so
+  # `k6 run` needs no port-forward at all: http://localhost:8080.
+  type: LoadBalancer
+  selector:
+    app: sample
+  ports:
+    - name: http
+      port: 8080
+      targetPort: http

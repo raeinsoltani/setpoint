@@ -1,0 +1,76 @@
+# Helm values for kube-prometheus-stack on the single-node evaluation cluster.
+#
+#   helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+#   helm repo update
+#   helm install monitoring prometheus-community/kube-prometheus-stack \
+#     -n monitoring --create-namespace -f deploy/prometheus/values.yaml
+
+prometheus:
+  prometheusSpec:
+    # THE gotcha of this chart. It defaults to true, which makes Prometheus discover
+    # only ServiceMonitors carrying the Helm release label — so the hand-written
+    # ServiceMonitors in servicemonitors.yaml are ignored, no targets appear, every
+    # query returns empty, and nothing in the logs says why. Setting all four to
+    # false means "discover every monitor in the cluster", which is what you want on
+    # a dedicated evaluation cluster and would not be on a shared one.
+    serviceMonitorSelectorNilUsesHelmValues: false
+    podMonitorSelectorNilUsesHelmValues: false
+    ruleSelectorNilUsesHelmValues: false
+    probeSelectorNilUsesHelmValues: false
+
+    # 15s global scrape interval, overridden to 5s per ServiceMonitor for the two
+    # targets that matter.
+    scrapeInterval: 15s
+    evaluationInterval: 15s
+
+    # Experiments are short and re-runnable, and the raw series are exported to
+    # experiments/results/ anyway, so there is nothing to protect across a restart.
+    retention: 6h
+    walCompression: true
+
+    resources:
+      requests:
+        cpu: 200m
+        memory: 512Mi
+      limits:
+        memory: 1Gi
+
+grafana:
+  enabled: true
+  # Local evaluation cluster reached only through `kubectl port-forward`. Not a
+  # credential worth protecting, and it is checked into a public repo — so it must
+  # never be reused anywhere that matters.
+  adminPassword: admin
+  defaultDashboardsEnabled: true
+
+  # Picks up any ConfigMap labelled `grafana_dashboard: "1"`, which is how
+  # deploy/grafana/dashboard-configmap.yaml gets loaded without clicking through
+  # the UI. Dashboards therefore live in git and survive a cluster teardown.
+  sidecar:
+    dashboards:
+      enabled: true
+      label: grafana_dashboard
+      searchNamespace: ALL
+
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      memory: 256Mi
+
+# Node and kube-state metrics are left enabled: total cluster CPU is how the
+# resource-seconds figure in the evaluation is cross-checked against the
+# replica-seconds the autoscaler reports.
+nodeExporter:
+  enabled: true
+kubeStateMetrics:
+  enabled: true
+
+# Nothing here alerts anyone, and the default rules fire constantly against a
+# single-node Docker Desktop cluster (no HA, no etcd metrics), which buries the
+# Prometheus UI in noise during a demo.
+alertmanager:
+  enabled: false
+defaultRules:
+  create: false

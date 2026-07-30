@@ -1,0 +1,33 @@
+# kind cluster for reviewer reproducibility.
+#
+# The signed proposal's section 6 names *k3s or kind*; daily development happens on
+# Docker Desktop Kubernetes, which is functionally equivalent but is not what was
+# signed. This file closes that gap: the stack is verified on kind once, so the
+# deviation is recorded and mitigated rather than hidden, and a reviewer without
+# Docker Desktop can still reproduce the results.
+#
+#   kind create cluster --config deploy/kind/cluster.yaml
+#   kind load docker-image sample-app:dev setpoint:dev --name setpoint
+#
+# `kind load` matters: kind nodes do not see the host's Docker images, and both
+# manifests use imagePullPolicy: IfNotPresent against local tags. Skipping it gives
+# ErrImagePull on images that are plainly present in `docker images`.
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+name: setpoint
+nodes:
+  - role: control-plane
+    # kube-prometheus-stack's Prometheus and Grafana are scheduled here too, so the
+    # control plane is not left unschedulable.
+    kubeadmConfigPatches:
+      - |
+        kind: InitConfiguration
+        nodeRegistration:
+          kubeletExtraArgs:
+            node-labels: "ingress-ready=true"
+  # Two workers so topologySpreadConstraints on the sample app has somewhere to
+  # spread. Ten replicas on a single kubelet contend for the same CPU, which inflates
+  # latency in a way that has nothing to do with the autoscaler's decisions and would
+  # corrupt the p95/p99 figures.
+  - role: worker
+  - role: worker

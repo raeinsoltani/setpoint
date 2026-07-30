@@ -1,0 +1,51 @@
+# Baseline arm `hpa-cpu`: stock Kubernetes HPA on CPU, the honest "what people
+# actually use today" comparison. Requires metrics-server.
+#
+# averageUtilization is 100, not the usual 70-80, and that is the point of the
+# calibration in cmd/sample-app: one replica serving its target of 100 req/s draws
+# exactly 200m, which is exactly its CPU request. So "100% of request" and "at the
+# per-replica target" are the same operating point, and this arm and ours-threshold
+# are aiming at the same place. Setting 70 here would quietly give this arm a
+# different setpoint and any difference in the results would be unattributable.
+#
+# behavior mirrors our own stabilizer so the comparison isolates the *signal*
+# (CPU vs application metric) and the *policy* (reactive vs predictive), not
+# incidental differences in damping:
+#   - scale-up immediate, no stabilization window
+#   - scale-down gated on a 90s window, matching stabilization_window_seconds
+#
+# NEVER apply this at the same time as the setpoint Deployment. Two controllers
+# writing .spec.replicas on one Deployment fight, and the resulting trace is
+# uninterpretable. experiments/run.sh enforces one arm at a time.
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: sample-hpa-cpu
+  namespace: default
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: sample
+  minReplicas: 1
+  maxReplicas: 20
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 100
+  behavior:
+    scaleUp:
+      stabilizationWindowSeconds: 0
+      policies:
+        - type: Percent
+          value: 100
+          periodSeconds: 15
+    scaleDown:
+      stabilizationWindowSeconds: 90
+      policies:
+        - type: Percent
+          value: 100
+          periodSeconds: 15

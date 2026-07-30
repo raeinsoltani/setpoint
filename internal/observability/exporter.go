@@ -32,16 +32,16 @@ type Exporter struct {
 	metricTarget    prometheus.Gauge
 	predictedValue  prometheus.Gauge
 
-	readyReplicas    prometheus.Gauge
-	rawRecommend     prometheus.Gauge
-	reconcileTime    prometheus.Histogram
-	scaleActions     *prometheus.CounterVec
-	collectorErrors  prometheus.Counter
-	scalerErrors     prometheus.Counter
-	reconcileTotal   prometheus.Counter
-	lastSuccessUnix  prometheus.Gauge
-	server           *http.Server
-	log              *slog.Logger
+	readyReplicas   prometheus.Gauge
+	rawRecommend    prometheus.Gauge
+	reconcileTime   prometheus.Histogram
+	scaleActions    *prometheus.CounterVec
+	collectorErrors prometheus.Counter
+	scalerErrors    prometheus.Counter
+	reconcileTotal  prometheus.Counter
+	lastSuccessUnix prometheus.Gauge
+	server          *http.Server
+	log             *slog.Logger
 }
 
 // Options configures an Exporter.

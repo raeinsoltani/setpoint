@@ -63,10 +63,29 @@ def pattern_bursty(t: float) -> float:
     return base
 
 
+def pattern_ramp(t: float) -> float:
+    """A single sustained trend: 200 rps, rising linearly to 1200 over 20 minutes.
+
+    Added because the three patterns above do not contain the workload predictive
+    scaling actually exists for. ``spike`` and ``bursty`` are step functions no
+    forecaster can anticipate, and ``diurnal`` trends but also turns. This one gives
+    a forecaster a clean trend to extrapolate, so it is where the predictive policy
+    should show its largest advantage -- and if it does not win here, it does not win.
+
+    Mirrored exactly by ``ramp`` in test/load/lib/patterns.js. Change both together.
+    """
+    if t < 300:
+        return 200.0
+    if t < 1500:
+        return 200.0 + 1000.0 * (t - 300.0) / 1200.0
+    return 1200.0
+
+
 PATTERNS: Dict[str, Callable[[float], float]] = {
     "spike": pattern_spike,
     "diurnal": pattern_diurnal,
     "bursty": pattern_bursty,
+    "ramp": pattern_ramp,
 }
 
 

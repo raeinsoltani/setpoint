@@ -1,0 +1,63 @@
+# Baseline arm `hpa-custom`: stock HPA on the *same* application metric our policy
+# uses, exposed through prometheus-adapter.
+#
+# This is the arm that isolates the project's actual claim. Comparing against
+# hpa-cpu alone conflates two changes — a better signal (req/s instead of CPU) and a
+# better policy (predictive instead of reactive) — and a judge will notice. With this
+# arm, hpa-custom vs ours-predictive differ *only* in the policy, because the signal
+# and the setpoint are identical.
+#
+# Per the plan this is the last thing built and the first thing cut: it needs a
+# working prometheus-adapter rule set, which is the most fragile piece of
+# infrastructure in the project. The core claim survives without it.
+#
+# Requires prometheus-adapter configured with a rule exposing the per-ready-replica
+# request rate as a Pods metric named `http_requests_per_second`:
+#
+#   rules:
+#   - seriesQuery: 'http_requests_total{namespace!="",pod!=""}'
+#     resources:
+#       overrides:
+#         namespace: {resource: "namespace"}
+#         pod: {resource: "pod"}
+#     name:
+#       matches: "^http_requests_total$"
+#       as: "http_requests_per_second"
+#     metricsQuery: 'sum(rate(<<.Series>>{<<.LabelMatchers>>}[1m])) by (<<.GroupBy>>)'
+#
+# averageValue 100 matches policy.target in config.yaml. A Pods metric with
+# averageValue divides the summed metric by the number of *ready* pods, which is the
+# same formula base our policy uses — see the ready-vs-spec note in the plan.
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: sample-hpa-custom
+  namespace: default
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: sample
+  minReplicas: 1
+  maxReplicas: 20
+  metrics:
+    - type: Pods
+      pods:
+        metric:
+          name: http_requests_per_second
+        target:
+          type: AverageValue
+          averageValue: "100"
+  behavior:
+    scaleUp:
+      stabilizationWindowSeconds: 0
+      policies:
+        - type: Percent
+          value: 100
+          periodSeconds: 15
+    scaleDown:
+      stabilizationWindowSeconds: 90
+      policies:
+        - type: Percent
+          value: 100
+          periodSeconds: 15

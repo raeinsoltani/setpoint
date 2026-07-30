@@ -1,0 +1,70 @@
+# ServiceMonitors for both scrape targets. Requires the Prometheus Operator CRDs,
+# so apply this *after* kube-prometheus-stack is installed.
+#
+# `targetLabels: [app]` is the load-bearing line in both objects. The autoscaler's
+# PromQL selects on `app="sample"`, but that label lives on the Kubernetes Service,
+# not in the metrics the app exposes. Without promoting it onto the scraped series,
+# `http_requests_total{app="sample"}` matches nothing, the query returns an empty
+# vector, the collector reads it as zero load — which it is designed to do, because
+# an empty vector legitimately means "no pods up yet" — and the autoscaler quietly
+# holds the fleet at min_replicas while load climbs. It fails silently, which is why
+# it is called out here rather than left to be rediscovered.
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: sample
+  namespace: default
+  labels:
+    app: sample
+spec:
+  selector:
+    matchLabels:
+      app: sample
+  targetLabels:
+    - app
+  endpoints:
+    - port: http
+      path: /metrics
+      # 5s, well under the 15s control interval and the 1m rate() window. A scrape
+      # interval at or above the control interval would feed the autoscaler stale
+      # readings and make measured reaction time an artefact of the scrape period
+      # rather than of the policy.
+      interval: 5s
+      scrapeTimeout: 4s
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: setpoint
+  namespace: default
+  labels:
+    app: setpoint
+spec:
+  selector:
+    app: setpoint
+  ports:
+    - name: metrics
+      port: 8000
+      targetPort: metrics
+---
+# Scraping the autoscaler's own metrics is what makes the Grafana dashboard
+# possible: desired vs current vs ready replicas, the metric against its target,
+# and the predicted value all come from here rather than from the cluster.
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: setpoint
+  namespace: default
+  labels:
+    app: setpoint
+spec:
+  selector:
+    matchLabels:
+      app: setpoint
+  targetLabels:
+    - app
+  endpoints:
+    - port: metrics
+      path: /metrics
+      interval: 5s
+      scrapeTimeout: 4s

@@ -23,7 +23,19 @@ policy:
   target: 100.0               # desired per-replica value of the signal
   tolerance: 0.10             # 10% dead-band, as in Kubernetes HPA
   min_replicas: 1
-  max_replicas: 10
+  # 20, not 10, and matching MAX_R in sim/demo/simulate.py.
+  #
+  # Every workload in test/load/ peaks at 1200-1300 req/s, which needs 12-13
+  # replicas at a target of 100. A ceiling of 10 would clip the fleet during peak on
+  # all four patterns, so every comparison arm would saturate at 10 replicas serving
+  # 130 req/s each — identically above the SLA line — and the SLA-violation metric
+  # would stop distinguishing the arms exactly where the comparison matters most.
+  # Predictive would appear no better than reactive for a reason that has nothing to
+  # do with either policy.
+  #
+  # Capacity is not the constraint: 20 replicas request 4 CPU of the node's 14, and
+  # 20 of its 110 pod slots.
+  max_replicas: 20
   forecaster:
     type: ewma                # ewma | holt
     horizon: 3                # steps ahead; 3 x 15s = 45s of lead time
