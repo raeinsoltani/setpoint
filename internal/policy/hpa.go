@@ -42,7 +42,7 @@ func DesiredReplicas(base int32, metric, target, tolerance float64, minReplicas,
 		if b < 1 {
 			b = 1
 		}
-		desired = int32(math.Ceil(float64(b) * ratio))
+		desired = ceilToReplicas(float64(b) * ratio)
 	}
 
 	return clamp(desired, minReplicas, maxReplicas), nil
@@ -62,7 +62,29 @@ func FleetFor(totalLoad, target float64, minReplicas, maxReplicas int32) (int32,
 	if math.IsNaN(totalLoad) || math.IsInf(totalLoad, 0) || totalLoad < 0 {
 		return clamp(minReplicas, minReplicas, maxReplicas), nil
 	}
-	return clamp(int32(math.Ceil(totalLoad/target)), minReplicas, maxReplicas), nil
+	return clamp(ceilToReplicas(totalLoad/target), minReplicas, maxReplicas), nil
+}
+
+// ceilToReplicas rounds a fractional replica demand up to a whole replica count,
+// saturating rather than overflowing.
+//
+// The explicit range check is load-bearing. Go specifies that a float-to-int
+// conversion whose result the target type cannot represent "succeeds but the result
+// value is implementation-dependent" — so int32(math.Ceil(1e18)) may saturate to
+// MaxInt32 on one architecture and wrap to a negative number on another. A negative
+// value would then be read by clamp as "below min" and scale the fleet *down* under
+// extreme load: the worst possible response, arrived at by accident, and only on
+// some build targets. Saturating here makes the behaviour the same everywhere.
+func ceilToReplicas(v float64) int32 {
+	c := math.Ceil(v)
+	switch {
+	case c >= math.MaxInt32:
+		return math.MaxInt32
+	case c <= math.MinInt32:
+		return math.MinInt32
+	default:
+		return int32(c)
+	}
 }
 
 func clamp(v, lo, hi int32) int32 {

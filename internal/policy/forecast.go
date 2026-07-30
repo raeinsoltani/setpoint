@@ -79,7 +79,11 @@ func NewHolt(horizon int, alpha, beta float64) *Holt {
 // Update implements Forecaster.
 func (f *Holt) Update(value float64) float64 {
 	if math.IsNaN(value) || math.IsInf(value, 0) {
-		return f.level + f.trend*float64(f.horizon)
+		// Same non-negative floor as the seeded path below. Without it a metric
+		// gap arriving during a steep decline returns a negative load, which
+		// FleetFor would silently floor to min_replicas — a real scale-down
+		// caused by a missing scrape rather than by absent load.
+		return math.Max(0, f.level+f.trend*float64(f.horizon))
 	}
 	switch {
 	case !f.seeded:

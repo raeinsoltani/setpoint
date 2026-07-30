@@ -19,6 +19,7 @@ type Stabilizer struct {
 
 	recs        []timedRec
 	lastScaleAt time.Time
+	lastWasUp   bool
 	hasScaled   bool
 }
 
@@ -69,11 +70,17 @@ func (s *Stabilizer) Stabilize(current, recommendation int32, now time.Time) (in
 		}
 	}
 
-	if s.cooldown > 0 && s.hasScaled && now.Sub(s.lastScaleAt) < s.cooldown {
+	// The cooldown is per direction. Its purpose is to stop the fleet being walked
+	// up or down in a rapid series of small steps; it is not meant to delay a
+	// reversal, because load returning right after a scale-down is precisely the
+	// case where waiting costs an SLA breach. The proposal's «شیب‌گیری» is a limit
+	// on repeated movement one way, not a global freeze after any action.
+	up := target > current
+	if s.cooldown > 0 && s.hasScaled && up == s.lastWasUp && now.Sub(s.lastScaleAt) < s.cooldown {
 		return current, "hold (cooldown)"
 	}
 
-	s.lastScaleAt, s.hasScaled = now, true
+	s.lastScaleAt, s.lastWasUp, s.hasScaled = now, up, true
 	return target, reason
 }
 
