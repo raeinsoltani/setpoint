@@ -87,12 +87,23 @@ so a working kind config is checked in and verified, which keeps the repository
 reproducible for a reviewer who does not have Docker Desktop:
 
 ```bash
+kubectl --context docker-desktop delete -f deploy/sample-app/deployment.yaml   # frees host :8080
 kind create cluster --config deploy/kind/cluster.yaml
 kind load docker-image sample-app:dev setpoint:dev --name setpoint
+make stack-up
 ```
 
-`kind load` is not optional — kind nodes cannot see the host's Docker images, and both
-manifests use `imagePullPolicy: IfNotPresent` against local tags.
+Two things that are not optional:
+
+- **`kind load`** — kind nodes cannot see the host's Docker images, and both manifests use
+  `imagePullPolicy: IfNotPresent` against local tags.
+- **Freeing host port 8080 first.** Both clusters want it — Docker Desktop through its
+  LoadBalancer implementation, kind through `extraPortMappings` — and kind reports the
+  clash as an opaque cluster-creation failure (`Bind for 0.0.0.0:8080 failed`).
+
+kind does not implement `LoadBalancer` services, so `svc/sample` stays `<pending>` there.
+It is still reachable at `localhost:8080` because the Service pins `nodePort: 30080` and
+the kind config maps the host port onto it — so `make load` is identical on both clusters.
 
 ## Development
 

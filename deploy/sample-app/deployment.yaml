@@ -147,3 +147,9 @@ spec:
     - name: http
       port: 8080
       targetPort: http
+      # Pinned so it can be mapped to a fixed host port. Docker Desktop implements
+      # LoadBalancer natively and surfaces this on localhost:8080; kind does not
+      # implement LoadBalancer at all, so its service would sit at <pending>
+      # forever — deploy/kind/cluster.yaml maps host 8080 to this nodePort instead.
+      # Pinning it is what lets one `make load` invocation work on both.
+      nodePort: 30080

@@ -12,6 +12,22 @@
 # `kind load` matters: kind nodes do not see the host's Docker images, and both
 # manifests use imagePullPolicy: IfNotPresent against local tags. Skipping it gives
 # ErrImagePull on images that are plainly present in `docker images`.
+#
+# Tear the Docker Desktop sample app down first. Both clusters want host port 8080 —
+# Docker Desktop through its LoadBalancer implementation, kind through the port
+# mapping below — and only one process can own it:
+#
+#   Bind for 0.0.0.0:8080 failed: port is already allocated
+#
+# kind reports this as a cluster-creation failure with no mention of port 8080 being
+# the sample app's, so it is worth knowing in advance:
+#
+#   kubectl --context docker-desktop delete -f deploy/sample-app/deployment.yaml
+#
+# Verified end to end on kind 2026-07-30: 3 nodes Ready, both images loaded on all
+# three, kube-prometheus-stack up, sample app answering on localhost:8080, pods
+# spread across both workers, one scrape target per replica with the app label
+# promoted, and the autoscaler reading the metric and owning the replica count.
 kind: Cluster
 apiVersion: kind.x-k8s.io/v1alpha4
 name: setpoint
@@ -25,6 +41,16 @@ nodes:
         nodeRegistration:
           kubeletExtraArgs:
             node-labels: "ingress-ready=true"
+    # kind does not implement LoadBalancer services — without this the sample app's
+    # service sits at <pending> forever and k6 has nothing to talk to. Mapping the
+    # host port to the service's pinned nodePort makes `k6 run` reach the app at
+    # localhost:8080 here exactly as it does on Docker Desktop, so the load scripts
+    # need no per-cluster variation. kube-proxy on this node routes to whichever
+    # worker holds a ready pod.
+    extraPortMappings:
+      - containerPort: 30080
+        hostPort: 8080
+        protocol: TCP
   # Two workers so topologySpreadConstraints on the sample app has somewhere to
   # spread. Ten replicas on a single kubelet contend for the same CPU, which inflates
   # latency in a way that has nothing to do with the autoscaler's decisions and would
