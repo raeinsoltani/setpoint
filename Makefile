@@ -134,17 +134,28 @@ calibrate: build-sample
 experiment:
 	./experiments/run.sh --arm $(ARM) --pattern $(PATTERN) $(EXP_FLAGS)
 
-# Every arm on one workload, in the order the evaluation presents them. Sequential
-# by construction: two controllers on one Deployment produce an uninterpretable
-# trace, so the arms can never be run in parallel.
+# Every arm on one workload. Sequential by construction: two controllers on one
+# Deployment produce an uninterpretable trace, so the arms can never be run in
+# parallel. A full sweep at TIME_SCALE=1 is ~34 minutes per arm.
 #   make sweep PATTERN=ramp
 #   make sweep PATTERN=ramp SWEEP_ARMS="ours-threshold ours-predictive"
-SWEEP_ARMS ?= static hpa-cpu ours-threshold ours-predictive ours-predictive-per-replica
+#
+# Ordered so the three arms the simulator can be compared against run first: an
+# interrupted sweep should still be able to answer the ordering question.
+#
+# A failing arm does not stop the sweep. Each run is independently gated by run.sh
+# and records its own validity, so one arm failing says nothing about the next — and
+# on a multi-hour unattended run, aborting would throw away good hours over one bad
+# one. Failures are collected and reported at the end.
+SWEEP_ARMS ?= static ours-threshold ours-predictive hpa-cpu ours-predictive-per-replica
 sweep:
-	@for arm in $(SWEEP_ARMS); do \
+	@failed=""; \
+	for arm in $(SWEEP_ARMS); do \
 	  echo; echo "########## $$arm / $(PATTERN) ##########"; \
-	  ./experiments/run.sh --arm $$arm --pattern $(PATTERN) $(EXP_FLAGS) || exit 1; \
-	done
+	  ./experiments/run.sh --arm $$arm --pattern $(PATTERN) $(EXP_FLAGS) || failed="$$failed $$arm"; \
+	done; \
+	echo; \
+	if [ -n "$$failed" ]; then echo "FAILED ARMS:$$failed"; else echo "all arms completed"; fi
 	@$(MAKE) analyze
 
 analyze:

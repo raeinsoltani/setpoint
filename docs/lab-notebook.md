@@ -354,6 +354,14 @@ Expect it for prometheus-adapter, metrics-server and KEDA. **Belongs in the repr
 section**: a reviewer on an unfiltered connection will never see it; one behind the same
 mirror hits it immediately.
 
+**Correction, 2026-08-09.** The expectation above was too broad. metrics-server installed
+from the chart with **no intervention**: `registry.k8s.io/metrics-server/metrics-server:v0.8.1`
+pulled straight through the mirror and the Deployment went Available in ~30s. So the
+failure is specific to `quay.io` (and, per the original observation, `ghcr.io`) — not to
+non-Docker-Hub registries in general, which is how the earlier note reads.
+`registry.k8s.io` is fine. Whether prometheus-adapter and KEDA are affected is still
+untested; both are on `ghcr.io`, so the original expectation probably does hold for them.
+
 ---
 
 ## 7. Live-run results
