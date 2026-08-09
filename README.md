@@ -52,6 +52,7 @@ internal/controller/   reconcile loop
 internal/observability/ promhttp exporter
 deploy/                manifests: sample-app, setpoint, prometheus, grafana, hpa, kind
 test/load/             k6 workloads: spike, diurnal, bursty, ramp
+experiments/           Phase 6 harness: one run in, tables and figures out
 sim/                   Python closed-loop simulator (design reference + fallback figures)
 docs/                  architecture and report
 ```
@@ -79,6 +80,23 @@ Switch policies by editing `policy.name` in `deploy/setpoint/configmap.yaml`
 (`threshold` | `predictive` | `predictive-per-replica`) and restarting the Deployment.
 
 `make stack-down` removes everything.
+
+## Measured experiments
+
+`make load` drives traffic and tells you nothing afterwards. The evaluation runs go
+through `experiments/`, which turns that into a recorded, checkable unit of evidence —
+it tears down every controller, applies exactly one arm, verifies the policy that is
+actually live, warms the metric pipeline, measures, captures 17 Prometheus series, and
+records whether the run is valid and why.
+
+```bash
+make experiment ARM=ours-predictive PATTERN=ramp   # one run
+make sweep PATTERN=ramp                            # every arm on one workload
+make analyze                                       # tables + figures from all runs
+```
+
+Every gate in there is a silent failure from `docs/lab-notebook.md` §6 turned into a
+loud one. See [experiments/README.md](experiments/README.md).
 
 ### Cluster options
 

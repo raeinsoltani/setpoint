@@ -542,3 +542,92 @@ proper read-modify-write on `resourceVersion`.
    static on SLA violations, predictive costing more replica-seconds than threshold)?
    Directional agreement is a strong validity argument; a mismatch means the model or the
    deployment is wrong and must be investigated, not glossed over.
+   *Now checked automatically* — `experiments/analyze.py` writes the comparison into
+   `summary.md` as soon as two comparable arms have run. See §11.
+
+---
+
+## 11. The Phase 6 experiment harness — 2026-08-09
+
+Built before running anything, deliberately. The alternative — run twenty experiments by
+hand and post-process them afterwards — is how one discovers on the twentieth that the
+third was invalid, with no way to tell which of the others share the defect.
+
+`experiments/run.sh` performs one run; `experiments/analyze.py` derives every number from
+the captures. **No metric is computed during a run and nothing is measured during
+analysis.** That split is what makes a metric definition correctable: the raw series are
+kept, so a definition that turns out to be wrong can be fixed and every past run rescored
+without going back to the cluster.
+
+### 11.1 A run is not `k6 run`
+
+```
+teardown → apply exactly one arm → reset fleet → warm up → measure → settle
+         → capture 17 series → check validity → write run.json
+```
+
+Every step other than "measure" is a §6 finding turned into a gate. The two that would
+have cost the most:
+
+- **Verifying the live ConfigMap after switching policy.** A ConfigMap edit does not
+  restart the pod, and a mounted ConfigMap updates only on the kubelet's sync period.
+  Without an explicit `rollout restart` plus a read-back, the *previous* arm's policy
+  keeps running under the new arm's name. Every number would be attributed to the wrong
+  policy, and nothing anywhere would look wrong.
+- **The warmup, at the pattern's own `t=0` rate.** `http_requests_total` does not exist
+  until the first request (§6.4) and `rate(...[1m])` needs a full minute before it means
+  anything, so a run starting at t=0 spends its first minute measuring the metric
+  pipeline filling up. It also lets each arm enter the measured window at *its own*
+  equilibrium rather than adding an identical cold-start climb to the front of every
+  trace.
+
+Validity is recorded per run in `run.json`, so the analysis excludes broken runs
+automatically instead of relying on someone remembering which afternoon's were bad.
+
+**`valid` and `smoke` are separate axes**, and conflating them was the first design error
+(caught while testing): `valid: false` means the mechanics broke and nothing is
+recoverable; `smoke: true` means `TIME_SCALE != 1`, where the mechanics may be perfect
+and the numbers still belong nowhere near the evaluation chapter. `run.sh` now refuses
+`--time-scale != 1` without an explicit `--smoke`.
+
+### 11.2 k6 does not export a p99
+
+`--summary-export` carries `p(90)` and `p(95)` only. It *evaluates* the `p(99)<1000`
+threshold and reports pass/fail, but discards the value — so the p99 in §7.2 could not
+have been reproduced from that run's artefacts.
+
+The evaluation's latency figures therefore come from the sample app's own
+`http_request_duration_seconds` histogram, as one `histogram_quantile` over a `rate()`
+window equal to the whole measurement window. k6's client-side view is kept as a
+cross-check; it includes network time the histogram does not, so the two should agree
+closely and a large gap is worth chasing.
+
+### 11.3 Compression confirmed harmful, with numbers
+
+§7.2 argued from reasoning that `TIME_SCALE != 1` runs cannot be reported. A harness
+smoke run at `TIME_SCALE=20` on `ramp` shows it directly:
+
+| | Observed |
+|---|---|
+| Fleet at the end of the ramp | **11 ready**, never reached the required 12 |
+| Measured `rate(...[1m])` at peak | **~910 req/s** against an offered 1200 |
+| Requests delivered | 62,204, **0 dropped**, p95 2.45 ms |
+
+Both distortions are pure artefacts of the compressed axis. A 1-minute `rate()` window
+covers 1200 *pattern* seconds at this scale, so the load signal is smeared beyond
+recognition; and pods take the same 30s to start while the workload finishes 20× sooner,
+so the fleet cannot possibly track it. Neither says anything about the policy. This is
+the concrete form of the §7.2 caveat, and a compact way to justify the 30-minute run
+length to a judge who asks why the experiments take so long.
+
+Worth noting separately: the load generator delivered 1200 req/s with **zero dropped
+iterations at 3–4 VUs**, so k6 is not a bottleneck at these rates. Offered-vs-delivered
+is now measured on every run against the pattern's own integral, and a run below 95% is
+marked invalid — an arm that was never really loaded looks adequate for a reason having
+nothing to do with its policy (§6.3).
+
+### 11.4 Not yet exercised
+
+The `hpa-cpu` and `hpa-custom` paths in `run.sh` are written but **unrun** — metrics-server
+and prometheus-adapter are still not installed, so the gate that waits for the HPA to stop
+reporting `<unknown>` has never fired in anger. First real use will be the first test of it.

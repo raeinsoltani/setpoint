@@ -5,10 +5,18 @@ SAMPLE_IMAGE := sample-app:dev
 PKG     := ./...
 MON_NS  := monitoring
 PATTERN ?= spike
+ARM     ?= ours-predictive
+
+# The analysis imports the simulator's pattern definitions and needs matplotlib, so
+# it runs under the simulator's venv when there is one. Falling back to python3 keeps
+# `make analyze` working on a machine that only has the Go side set up — it will
+# still write the tables, and skip the figures if matplotlib is missing.
+PY := $(shell [ -x sim/.venv/bin/python ] && echo sim/.venv/bin/python || echo python3)
 
 .PHONY: build build-sample test cover vet lint image sample-image deploy undeploy \
         dry-run clean monitoring servicemonitors dashboard deploy-sample \
-        undeploy-sample stack-up stack-down grafana prometheus load calibrate
+        undeploy-sample stack-up stack-down grafana prometheus load calibrate \
+        experiment sweep analyze
 
 build:
 	go build -o $(BINARY) ./cmd/setpoint
@@ -114,6 +122,33 @@ load:
 calibrate: build-sample
 	@echo "Serving on :8080 with 1 CPU; drive it with k6 and compare req/s to 100."
 	GOMAXPROCS=1 ./$(SAMPLE) --addr :8080
+
+# ---------------------------------------------------------------------------
+# Phase 6 — measured experiments
+# ---------------------------------------------------------------------------
+
+# One measured run. `make load` drives traffic and tells you nothing afterwards;
+# this tears down every controller first, applies exactly one arm, warms the metric
+# pipeline, measures, captures the series, and records whether the run is valid.
+#   make experiment ARM=ours-predictive PATTERN=ramp
+experiment:
+	./experiments/run.sh --arm $(ARM) --pattern $(PATTERN) $(EXP_FLAGS)
+
+# Every arm on one workload, in the order the evaluation presents them. Sequential
+# by construction: two controllers on one Deployment produce an uninterpretable
+# trace, so the arms can never be run in parallel.
+#   make sweep PATTERN=ramp
+#   make sweep PATTERN=ramp SWEEP_ARMS="ours-threshold ours-predictive"
+SWEEP_ARMS ?= static hpa-cpu ours-threshold ours-predictive ours-predictive-per-replica
+sweep:
+	@for arm in $(SWEEP_ARMS); do \
+	  echo; echo "########## $$arm / $(PATTERN) ##########"; \
+	  ./experiments/run.sh --arm $$arm --pattern $(PATTERN) $(EXP_FLAGS) || exit 1; \
+	done
+	@$(MAKE) analyze
+
+analyze:
+	$(PY) experiments/analyze.py
 
 clean:
 	rm -rf bin coverage.out
