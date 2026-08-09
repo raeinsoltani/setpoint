@@ -28,5 +28,11 @@ bin/
 # Note: sim/results/*.png IS tracked; those are the thesis fallback figures.
 experiments/results/raw/
 
+# Sweep console logs. Kept on disk next to the results because a multi-hour
+# unattended sweep dies for reasons that only appear here (a dropped port-forward,
+# Docker Desktop going away), but they are console noise, not evidence — the
+# evidence is run.json.
+experiments/results/logs/
+
 # macOS
 .DS_Store

@@ -639,3 +639,48 @@ nothing to do with its policy (§6.3).
 The `hpa-cpu` and `hpa-custom` paths in `run.sh` are written but **unrun** — metrics-server
 and prometheus-adapter are still not installed, so the gate that waits for the HPA to stop
 reporting `<unknown>` has never fired in anger. First real use will be the first test of it.
+
+**Update, 2026-08-09:** metrics-server is installed, so `hpa-cpu` is in the sweep below and
+its gate gets its first real test. `hpa-custom` remains unrun — prometheus-adapter is still
+not installed.
+
+### 11.5 The first `ramp` sweep died of an unattended-run problem, not a cluster one
+
+The first attempt at `make sweep PATTERN=ramp` at `TIME_SCALE=1` produced **nothing**. The
+`static` arm's directory held `k6-stdout.log` (1.3 MB, so the load really was driven for the
+full 30 minutes) and no `run.json`, `series.json`, or `k6-summary.json` — it was killed
+between k6 finishing and the capture phase. The directory was deleted rather than kept:
+without series it cannot be rescored, so it is not evidence of anything.
+
+The cause was **Docker Desktop having gone away**, not the harness. `kubectl` came back with
+`connection refused` on the API server and `docker version` could not reach the daemon.
+On restart, metrics-server crashlooped twice with
+
+```
+panic: unable to load configmap based request-header-client-ca-file: ...
+       dial tcp 10.96.0.1:443: connect: connection refused
+```
+
+which is a **boot race, not a fault** — metrics-server starting before the apiserver is
+serving. It went Ready on its own within 10 seconds of the third start. Worth recognising on
+sight: it looks alarming and needs no action.
+
+Two changes so a multi-hour sweep survives:
+
+1. **The Prometheus port-forward is now supervised.** `kubectl port-forward` was spawned once
+   at preflight and never checked again. A run queries Prometheus during warmup and then not
+   again until capture ~30 minutes later, so a forward dropping anywhere inside that gap
+   destroys the whole run — and the failure only surfaces at the very end, after the load has
+   been driven. It now respawns from a supervisor loop until a sentinel file is removed on
+   exit, and capture waits up to 60s for the tunnel instead of assuming it survived.
+   Prometheus keeps scraping regardless, so the data is never actually lost — only the
+   tunnel to it. Verified by killing the child mid-flight: the forward came back in under 8s
+   and cleanup left no orphans.
+2. **The sweep runs under `caffeinate -i`**, detached with `nohup`. An unattended 3-hour run
+   has to outlive the display going to sleep.
+
+The general lesson, which belongs in the reproducibility section: at `TIME_SCALE=1` a single
+arm is ~34 minutes and a sweep is ~3 hours, which is long enough that *the laptop* becomes
+part of the experimental apparatus. Anything that can interrupt it — sleep, a Docker Desktop
+restart, a dropped tunnel — is a failure mode of the measurement, and each one costs half an
+hour of wall clock that cannot be compressed away (§11.3).

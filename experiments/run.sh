@@ -125,26 +125,50 @@ info "time scale   $TIME_SCALE$([[ $SMOKE == 1 ]] && echo '  (SMOKE — not an e
 # Prometheus port-forward, owned by this script and torn down with it
 # --------------------------------------------------------------------------- #
 PF_PID=""
+PF_STOP=""
 cleanup() {
   local rc=$?
-  [[ -n "$PF_PID" ]] && kill "$PF_PID" 2>/dev/null || true
+  # Remove the sentinel first so the supervisor loop does not respawn the child
+  # we are about to kill.
+  [[ -n "$PF_STOP" ]] && rm -f "$PF_STOP"
+  if [[ -n "$PF_PID" ]]; then
+    pkill -P "$PF_PID" 2>/dev/null || true
+    kill "$PF_PID" 2>/dev/null || true
+  fi
   exit $rc
 }
 trap cleanup EXIT INT TERM
 
+# prom_ready [SECONDS] -> 0 once Prometheus answers on the local port.
+prom_ready() {
+  local deadline=$(( $(date +%s) + ${1:-30} ))
+  while (( $(date +%s) < deadline )); do
+    curl -sf "http://localhost:$PROM_PORT/-/ready" >/dev/null 2>&1 && return 0
+    sleep 1
+  done
+  return 1
+}
+
+# `kubectl port-forward` is not durable: it drops on an apiserver hiccup, a Prometheus
+# pod restart, or an idle connection reset. A run queries Prometheus during warmup and
+# then not again until capture ~30 minutes later, so a forward that dies inside that gap
+# takes the entire run with it — the load was driven, the series were never read, and
+# the failure surfaces only at the very end. Supervise it: respawn until the sentinel
+# file disappears, which cleanup does on the way out.
 if curl -sf "http://localhost:$PROM_PORT/-/ready" >/dev/null 2>&1; then
   info "prometheus already reachable on :$PROM_PORT (reusing)"
 else
-  kubectl port-forward -n "$MON_NS" svc/monitoring-kube-prometheus-prometheus \
-    "$PROM_PORT:9090" >/dev/null 2>&1 &
+  PF_STOP="$(mktemp -t setpoint-pf)"
+  (
+    while [[ -f "$PF_STOP" ]]; do
+      kubectl port-forward -n "$MON_NS" svc/monitoring-kube-prometheus-prometheus \
+        "$PROM_PORT:9090" >/dev/null 2>&1 || true
+      sleep 1
+    done
+  ) &
   PF_PID=$!
-  for _ in $(seq 1 30); do
-    curl -sf "http://localhost:$PROM_PORT/-/ready" >/dev/null 2>&1 && break
-    sleep 1
-  done
-  curl -sf "http://localhost:$PROM_PORT/-/ready" >/dev/null 2>&1 \
-    || die "prometheus did not become reachable on :$PROM_PORT"
-  info "prometheus port-forward up on :$PROM_PORT"
+  prom_ready 30 || die "prometheus did not become reachable on :$PROM_PORT"
+  info "prometheus port-forward up on :$PROM_PORT (supervised, pid $PF_PID)"
 fi
 
 # promq QUERY [TIME] -> scalar value of the first sample, or "" if the query is empty.
@@ -339,6 +363,11 @@ T_CAPTURE_START=$((T_START - WARMUP_SECONDS))
 # Capture
 # --------------------------------------------------------------------------- #
 step "capturing series"
+
+# The forward may have dropped and been respawned at any point during the ~30 quiet
+# minutes above. Prometheus itself kept scraping throughout — the data is there either
+# way — so this waits for the tunnel rather than failing the run over it.
+prom_ready 60 || die "prometheus unreachable on :$PROM_PORT at capture time"
 
 # `total_rps` is offered load, not served load: shed requests are counted in
 # http_requests_total precisely so that offered load stays measurable under overload
