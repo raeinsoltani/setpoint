@@ -530,18 +530,34 @@ awk -v d="${DROPPED:-0}" -v r="${HTTP_REQS:-0}" 'BEGIN { exit !(r > 0 && d / (d 
   && REASONS+=("k6 dropped $DROPPED of $((${DROPPED%%.*} + ${HTTP_REQS%%.*})) iterations (>1%): offered load was below the pattern, which flatters the arm")
 
 # Count changes in spec.replicas — the quantity a controller writes. Zero under an
-# autoscaled arm means the controller was not attached; non-zero under `static`
+# autoscaled arm means the controller was not attached; non-zero under a static arm
 # means one still is.
-changes="$(jq -r '
-  [.spec_replicas.result[0].values[]? | .[1] | tonumber] as $v
+#
+# Restricted to the *measurement* window, not the whole capture. The capture reaches back
+# WARMUP_SECONDS, which is far enough to include this script's own `kubectl scale` when it
+# applied the arm — so a static arm following an arm that left a different replica count
+# saw its own setup counted as a controller and was failed with "a controller is still
+# attached". Found by the first static-peak run, which followed a fleet at 1: the series
+# opens 1 -> 12 before measurement even starts. Validity is a claim about the measured
+# window, so that is the window to ask about.
+changes="$(jq -r --argjson t0 "$T_START" --argjson t1 "$T_END" '
+  [.spec_replicas.result[0].values[]? | select(.[0] >= $t0 and .[0] <= $t1) | .[1] | tonumber] as $v
   | if ($v | length) < 2 then 0
     else [range(1; $v | length) | select($v[.] != $v[. - 1])] | length
     end' "$OUTDIR/series.json" 2>/dev/null || echo 0)"
 if ! is_static_arm && [[ "${changes:-0}" == "0" ]]; then
   REASONS+=("spec.replicas never changed under an autoscaled arm: the controller was not driving the Deployment")
 fi
-if is_static_arm && [[ "${changes:-0}" != "0" ]]; then
-  REASONS+=("spec.replicas changed $changes times under the $ARM arm: a controller is still attached")
+if is_static_arm; then
+  [[ "${changes:-0}" == "0" ]] \
+    || REASONS+=("spec.replicas changed $changes times during the measured window under the $ARM arm: a controller is still attached")
+  # Constant is not enough — constant *at the wrong value* means the fleet under test was
+  # not the fleet the arm claims to have pinned.
+  held="$(jq -r --argjson t0 "$T_START" --argjson t1 "$T_END" '
+    [.spec_replicas.result[0].values[]? | select(.[0] >= $t0 and .[0] <= $t1) | .[1] | tonumber] | unique | join(",")' \
+    "$OUTDIR/series.json" 2>/dev/null || echo "")"
+  [[ -z "$held" || "$held" == "$PINNED_REPLICAS" ]] \
+    || REASONS+=("$ARM was pinned at $PINNED_REPLICAS but spec.replicas read [$held] during the measured window")
 fi
 
 [[ "$captured" == "$total" ]] || info "note: $((total - captured)) series empty (expected for autoscaler_* on non-ours arms)"

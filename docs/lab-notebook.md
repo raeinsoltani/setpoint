@@ -767,3 +767,36 @@ The second is the more general lesson and belongs next to §6's silent-failure t
 that fires for the wrong reason is only marginally better than no gate, because it sends the
 next person to debug the wrong component. Every check should fail with the name of the thing
 that actually broke.
+
+### 11.8 The harness failed its own new arm, and the reason generalises
+
+Before committing 3h40m of cluster time to the fixed sweep, `static-peak` was smoke-tested
+alone at `TIME_SCALE=20`. It came back **INVALID**:
+
+```
+spec.replicas changed 1 times under the static-peak arm: a controller is still attached
+```
+
+No controller was attached. The change was **this script's own `kubectl scale`**. The
+capture window reaches back `WARMUP_SECONDS` before measurement starts, which is far enough
+to include the moment the arm was applied; the series opens `1 → 12` because the previous
+(killed) run had left the fleet at 1. The gate meant to detect a foreign controller detected
+the harness setting up.
+
+Plain `static` never tripped this only by luck — it had always run first, against a fleet
+already sitting at 8, so its scale was a no-op. In a sweep where `static-peak` follows
+`static`, it would have fired on **every** sweep.
+
+Fixed by asking the question over the *measured* window rather than the whole capture, which
+is the window validity is actually a claim about. Replayed against all three stored runs, the
+verdicts are unchanged where they should be: `static` 0 → 0 changes, `ours-threshold` 12 → 9
+(the three dropped were in warmup and settle), `static-peak` 1 → 0. A second check was added
+at the same time — a static arm must hold spec.replicas *at the value it pinned*, since
+constant-at-the-wrong-value means the fleet under test was not the fleet the arm claims.
+
+The generalisable point, and the reason the smoke test was worth the six minutes: **the
+harness is an instrument, and an instrument that has never been read against a known input
+has not been calibrated.** Three of the defects in §11.7–11.8 were in the checking code, not
+the system under test, and all three biased toward *rejecting good runs* — the failure mode
+that is invisible until it has quietly eaten a day of cluster time. Test a new arm at
+`TIME_SCALE=20` before spending 34 minutes on it.
