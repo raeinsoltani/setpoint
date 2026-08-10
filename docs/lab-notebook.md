@@ -684,3 +684,86 @@ arm is ~34 minutes and a sweep is ~3 hours, which is long enough that *the lapto
 part of the experimental apparatus. Anything that can interrupt it — sleep, a Docker Desktop
 restart, a dropped tunnel — is a failure mode of the measurement, and each one costs half an
 hour of wall clock that cannot be compressed away (§11.3).
+
+**Correction, 2026-08-10:** point 2 above was wrong, and the second sweep proved it. See §11.7.
+
+### 11.6 First real numbers, and the static baseline is not what it claimed to be
+
+The 2026-08-09 sweep produced two valid `ramp` runs at `TIME_SCALE=1` before the host
+started sleeping — the first evaluation-grade measurements in the project.
+
+| Arm | SLA violations | Replica-s | Under-prov. | Over-prov. | CPU core-s | Reaction (median) | Scale ↑/↓ | Reversals | p95 |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| `static` (8) | 35.5% | 14,440 | 2,400 | 3,630 | 2,624.9 | — | 0/0 | 0 | 2.4 ms |
+| `ours-threshold` | 5.2% | 12,050 | 1,220 | 0 | 2,479.0 | 125.0 s | 9/0 | 0 | 2.5 ms |
+
+The reactive policy beat the static baseline on **SLA and cost simultaneously** — 5.2% vs
+35.5% violations while using *fewer* replica-seconds. That is not a plausible tradeoff
+curve, and the reason is that the baseline was mis-specified, not that the policy is
+miraculous.
+
+`static` was pinned at 8 replicas, inherited from `sim/demo/simulate.py` where the comment
+read "a fixed, generously-provisioned baseline". It is nothing of the kind. Every pattern
+peaks well above it:
+
+| Pattern | Peak req/s | Replicas required at peak | At mean |
+|---|---:|---:|---:|
+| `spike` | 1300 | 13 | 6.3 |
+| `diurnal` | 1200 | 12 | 7.5 |
+| `bursty` | 1200 | 12 | 5.4 |
+| `ramp` | 1200 | 12 | 7.0 |
+
+So 8 is approximately the **mean** requirement, and the arm is under-provisioned at every
+peak — hence its 2,400 under-provisioning replica-seconds and the analyzer's four "never
+reached N ready replicas" flags. A baseline that loses on both axes is a strawman, and an
+examiner is entitled to say so.
+
+Fixed by carrying **two** static arms, which are the two honest ends of the tradeoff:
+
+- `static` — fixed 8, provisioned for the mean. Kept deliberately: capacity-planning to the
+  average is a real strategy, and showing it fail under variable load is a result.
+- `static-peak` — `ceil(peak(pattern)/target)`, provisioned for the peak. The
+  safe-and-expensive reference the evaluation needs. Computed from the pattern definition
+  at run time rather than hardcoded, so it cannot drift away from the workload the way the
+  8 did.
+
+Worth stating plainly in the evaluation chapter, because it is the more interesting claim:
+the useful comparison is not "autoscaling beats static" — that is rigged by choosing a bad
+static. It is *where on the cost/SLA curve each policy sits*, with both ends of static
+present as the reference.
+
+### 11.7 The host slept, and `caffeinate` does not prevent that
+
+The relaunched sweep lost 3 of 5 arms. `ours-predictive` recorded a measurement window of
+**27,577 s against an expected 1,800 s — a 15× stretch**. `hpa-cpu` ran 12 hours before
+being killed by hand; `ours-predictive-per-replica` never started.
+
+The host slept. `pmset -g log` showed ~100 sleep/wake cycles, and the two `caffeinate`
+assertions had been *held continuously* for 19 h 41 m against 23 h 11 m of wall clock — the
+3.5-hour difference is precisely the time the system spent asleep, since assertion timers do
+not advance during sleep.
+
+**`caffeinate -i` asserts `PreventUserIdleSystemSleep`, which stops only *idle* sleep.** It
+does not stop a lid-close, and neither does `-d`. Adding `-d` was tried and changed nothing.
+The only reliable options on this machine are keeping the lid open for the duration, or
+`sudo pmset -a disablesleep 1` (system-wide, and must be reverted). This is now a stated
+precondition for a sweep, not a detail.
+
+Two harness defects fell out of the wreckage, both fixed:
+
+1. **Restart counting could go negative.** The gate compared `sum(...restarts_total)` at two
+   instants, but that sums over the *current* pod set: any arm that scales down deletes pods,
+   their counts leave the sum, and the delta goes negative. `ours-predictive` was failed with
+   `sample-app restarted -1 time(s)`. This was not cosmetic — it would have produced false
+   invalids on every autoscaling arm indefinitely, and it does so *more often the better the
+   policy scales down*, which is the worst possible bias. Now counted as
+   `sum(increase(...[run]))` per series, which pod churn cannot make negative.
+2. **A run destroyed by the host had no way to say so.** The bad run *was* caught, but by the
+   dropped-iterations gate, whose message reads "offered load was below the pattern, which
+   flatters the arm" — it blames k6. Lost wall clock is now its own named invalid reason,
+   triggered when the measured window exceeds the expected one by more than 5%.
+
+The second is the more general lesson and belongs next to §6's silent-failure table: a gate
+that fires for the wrong reason is only marginally better than no gate, because it sends the
+next person to debug the wrong component. Every check should fail with the name of the thing
+that actually broke.
