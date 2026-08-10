@@ -27,3 +27,5 @@ so its magnitudes are not expected to match the cluster's.
 |---|---|
 | `ramp__ours-predictive__20260809T074021Z` | (none recorded) |
 | `ramp__ours-predictive__20260809T125157Z` | sample-app restarted -1 time(s) during the run: metric history is destroyed and the fleet was serving degraded (§6.2); k6 dropped 284532 of 1244998 iterations (>1%): offered load was below the pattern, which flatters the arm |
+| `ramp__static-peak__20260810T073824Z` | spec.replicas changed 1 times under the static-peak arm: a controller is still attached |
+| `ramp__static-peak__20260810T082758Z` | (none recorded) |
