@@ -151,7 +151,12 @@ def simulate(pattern: Callable[[float], float], strategy: str) -> Result:
     pool = ReplicaPool(ready=3)
     policy = None if strategy == "static" else make_policy(strategy)
     if strategy == "static":
-        pool.ready = 8                     # a fixed, generously-provisioned baseline
+        # Fixed at the *mean* requirement, not a generous one: every pattern peaks at
+        # 12-13 required replicas, so this baseline is under-provisioned at every peak
+        # and violates SLA there. That is the point — it is the "capacity-plan to the
+        # average" strawman. The cluster harness carries a second `static-peak` arm for
+        # the over-provisioned end; see experiments/run.sh.
+        pool.ready = 8
 
     times, loads, readys, per_rep = [], [], [], []
     violations = 0

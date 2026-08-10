@@ -147,7 +147,7 @@ experiment:
 # and records its own validity, so one arm failing says nothing about the next — and
 # on a multi-hour unattended run, aborting would throw away good hours over one bad
 # one. Failures are collected and reported at the end.
-SWEEP_ARMS ?= static ours-threshold ours-predictive hpa-cpu ours-predictive-per-replica
+SWEEP_ARMS ?= static static-peak ours-threshold ours-predictive hpa-cpu ours-predictive-per-replica
 sweep:
 	@failed=""; \
 	for arm in $(SWEEP_ARMS); do \

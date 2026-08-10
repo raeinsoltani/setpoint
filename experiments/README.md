@@ -52,7 +52,8 @@ given, and `analyze.py` excludes smoke runs unless `--include-smoke` is passed.
 
 | Arm | What it is | Needs |
 |---|---|---|
-| `static` | fixed 8 replicas, no controller — the generously-provisioned baseline | — |
+| `static` | fixed 8 replicas, no controller — provisioned for the *mean* | — |
+| `static-peak` | fixed `ceil(peak(pattern)/target)` replicas (12, or 13 for `spike`) — provisioned for the *peak* | — |
 | `hpa-cpu` | stock HPA on CPU at 100% of request | metrics-server |
 | `hpa-custom` | stock HPA on *our* metric via prometheus-adapter | prometheus-adapter |
 | `ours-threshold` | our reactive policy | — |
@@ -65,7 +66,18 @@ is also the first thing to cut if time runs short; the core claim survives witho
 
 The starting fleet (3 replicas, and 8 for `static`) matches the simulator's
 `ReplicaPool(ready=3)` and its static baseline, so a cluster run and a simulator run
-of the same arm can be laid side by side.
+of the same arm can be laid side by side. `static-peak` has no simulator counterpart
+for that reason — the simulator's static arm is the 8-replica one.
+
+**Why two static arms.** 8 replicas was inherited from the simulator, where a comment
+called it "generously-provisioned". It is not: every pattern peaks at 12–13 required
+replicas, so 8 is roughly the *mean* requirement and is under-provisioned at every peak.
+Measured on `ramp` it produced 35.5% SLA violations and lost to `ours-threshold` on
+SLA *and* cost — a baseline that loses on both axes reads as a strawman and gives the
+evaluation chapter no safe-and-expensive reference point. `static-peak` supplies that
+end; `static` is kept because "capacity-plan to the average" is a real strategy worth
+showing fail. `static-peak` is computed from the pattern rather than hardcoded, so it
+cannot drift away from the workload the way the 8 did.
 
 ## What a run leaves behind
 

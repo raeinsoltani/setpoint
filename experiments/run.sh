@@ -46,7 +46,31 @@ REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 INITIAL_REPLICAS=3
 STATIC_REPLICAS=8
 
-ARMS="static ours-threshold ours-predictive ours-predictive-per-replica hpa-cpu hpa-custom"
+# `static` at 8 is NOT the over-provisioned baseline the simulator's comment claims:
+# every pattern peaks at 12-13 required replicas (spike 13, the rest 12), so 8 is close
+# to the *mean* requirement and is under-provisioned at every peak. Measured on ramp it
+# came in at 35.5% SLA violations — losing to ours-threshold on SLA *and* cost, which
+# makes it read as a strawman rather than a baseline.
+#
+# So there are two static arms, and they are the two honest ends of the tradeoff:
+#   static       fixed 8 — provisioned for the mean, cheap, violates under peaks
+#   static-peak  ceil(peak(pattern)/target) — provisioned for the peak, safe, expensive
+# static-peak is computed from the pattern rather than hardcoded, so it cannot drift
+# from the workload the way the 8 did.
+STATIC_PEAK_REPLICAS=""   # resolved from the pattern below
+PINNED_REPLICAS=null      # what a fixed-fleet arm was actually pinned at; null otherwise
+
+# Both static arms are "no controller, fixed fleet" everywhere outside the case that
+# pins the replica count, so every other branch must ask about the class, not the name.
+is_static_arm() { [[ "$ARM" == "static" || "$ARM" == "static-peak" ]]; }
+
+# Same preference order as the Makefile: the simulator's venv if it exists, since that
+# is where the pattern definitions and their dependencies live.
+PYTHON_BIN="$([ -x "$(dirname "${BASH_SOURCE[0]}")/../sim/.venv/bin/python" ] \
+  && echo "$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/sim/.venv/bin/python" \
+  || echo python3)"
+
+ARMS="static static-peak ours-threshold ours-predictive ours-predictive-per-replica hpa-cpu hpa-custom"
 PATTERNS="spike diurnal bursty ramp"
 
 usage() {
@@ -247,7 +271,25 @@ apply_setpoint_with_policy() {
 case "$ARM" in
   static)
     kubectl scale deploy/"$DEPLOYMENT" -n "$NAMESPACE" --replicas="$STATIC_REPLICAS" >/dev/null
-    info "no controller; fleet pinned at $STATIC_REPLICAS replicas"
+    PINNED_REPLICAS="$STATIC_REPLICAS"
+    info "no controller; fleet pinned at $STATIC_REPLICAS replicas (mean-provisioned)"
+    ;;
+  static-peak)
+    # Asks the simulator for the pattern's peak, for the same reason analyze.py imports
+    # it: the peak must come from the workload definition that is actually driven, not
+    # from a number typed here that can silently stop matching it.
+    STATIC_PEAK_REPLICAS="$("$PYTHON_BIN" -c "
+import math, sys
+sys.path.insert(0, '$REPO/sim/demo')
+from simulate import PATTERNS, TARGET, DURATION
+peak = max(float(PATTERNS['$PATTERN'](float(t))) for t in range(int(DURATION)))
+print(math.ceil(peak / TARGET))
+")" || die "could not compute the peak requirement for pattern '$PATTERN'"
+    [[ "$STATIC_PEAK_REPLICAS" =~ ^[0-9]+$ ]] \
+      || die "peak requirement for '$PATTERN' came back as '$STATIC_PEAK_REPLICAS'"
+    kubectl scale deploy/"$DEPLOYMENT" -n "$NAMESPACE" --replicas="$STATIC_PEAK_REPLICAS" >/dev/null
+    PINNED_REPLICAS="$STATIC_PEAK_REPLICAS"
+    info "no controller; fleet pinned at $STATIC_PEAK_REPLICAS replicas (peak-provisioned for $PATTERN)"
     ;;
   ours-threshold)               apply_setpoint_with_policy threshold ;;
   ours-predictive)              apply_setpoint_with_policy predictive ;;
@@ -271,7 +313,7 @@ esac
 # --------------------------------------------------------------------------- #
 # Reset the fleet to a known starting point
 # --------------------------------------------------------------------------- #
-if [[ "$ARM" != "static" ]]; then
+if ! is_static_arm; then
   step "resetting fleet to $INITIAL_REPLICAS replicas"
   kubectl scale deploy/"$DEPLOYMENT" -n "$NAMESPACE" --replicas="$INITIAL_REPLICAS" >/dev/null
 fi
@@ -326,7 +368,6 @@ if [[ "$ARM" == hpa-* ]]; then
   info "$hpa_name is reading its metric"
 fi
 
-restarts_before="$(promq "sum(kube_pod_container_status_restarts_total{namespace=\"$NAMESPACE\",container=\"$CONTAINER\"})")"
 spec_before="$(promq "kube_deployment_spec_replicas{deployment=\"$DEPLOYMENT\",namespace=\"$NAMESPACE\"}")"
 
 # --------------------------------------------------------------------------- #
@@ -449,11 +490,38 @@ step "validity"
 
 REASONS=()
 
-restarts_after="$(promq "sum(kube_pod_container_status_restarts_total{namespace=\"$NAMESPACE\",container=\"$CONTAINER\"})")"
-# The counter is cumulative across the pod's whole life, so only the delta over this
-# run means anything — an absolute value is dominated by every previous experiment.
-r_before="${restarts_before%%.*}"; r_after="${restarts_after%%.*}"
-RESTARTS=$(( ${r_after:-0} - ${r_before:-0} ))
+# Did the host stay awake for the whole measurement?
+#
+# `caffeinate -i` asserts PreventUserIdleSystemSleep, which does not stop a lid-close or
+# a forced sleep. On 2026-08-09 the machine slept ~3.5 h in total across ~100 sleep/wake
+# cycles and stretched a 30-minute ours-predictive run to 7.7 h of wall clock — every
+# series smeared across a window 15x too long, and k6 unable to offer the pattern. That
+# run was caught, but by the *dropped-iterations* gate, whose message blames the load
+# generator. A run destroyed by the host sleeping must say so, or the next person reads
+# "k6 under-delivered" and goes looking in the wrong place.
+EXPECTED_SECONDS="$("$PYTHON_BIN" -c "
+import sys
+sys.path.insert(0, '$REPO/sim/demo')
+from simulate import DURATION
+print(int(DURATION / $TIME_SCALE))
+" 2>/dev/null || echo 0)"
+if [[ "$EXPECTED_SECONDS" =~ ^[0-9]+$ ]] && (( EXPECTED_SECONDS > 0 )); then
+  # 5% covers k6's startup and teardown; anything beyond it is lost wall clock.
+  limit=$(( EXPECTED_SECONDS * 105 / 100 ))
+  (( MEASURED_SECONDS <= limit )) || REASONS+=("measurement window was ${MEASURED_SECONDS}s against an expected ${EXPECTED_SECONDS}s: the host lost wall-clock time (sleep/suspend) and every series is stretched")
+fi
+
+# Restarts must be counted with increase() over the per-pod series, not as a delta of
+# sum() across the fleet. The counter is per pod and cumulative over that pod's life, so
+# a sum() taken at two instants compares two *different pod sets*: any arm that scales
+# down deletes pods, their counts leave the sum, and the delta goes negative. That is not
+# hypothetical — the 2026-08-09 ours-predictive run was failed by "restarted -1 time(s)".
+# increase() is evaluated per series and summed after, so pod churn cannot make it
+# negative, and a pod created mid-run is a new series starting at 0 rather than a reset.
+RUN_SECONDS=$((T_CAPTURE_END - T_CAPTURE_START))
+restarts_raw="$(promq "sum(increase(kube_pod_container_status_restarts_total{namespace=\"$NAMESPACE\",container=\"$CONTAINER\"}[${RUN_SECONDS}s]))" "$T_CAPTURE_END")"
+# increase() extrapolates, so one real restart lands near but not exactly on 1.0.
+RESTARTS="$(awk -v v="${restarts_raw:-0}" 'BEGIN { printf "%d", (v < 0 ? 0 : int(v + 0.5)) }')"
 (( RESTARTS == 0 )) || REASONS+=("sample-app restarted $RESTARTS time(s) during the run: metric history is destroyed and the fleet was serving degraded (§6.2)")
 
 DROPPED="$(jq -r '.metrics.dropped_iterations.count // .metrics.dropped_iterations.values.count // 0' "$OUTDIR/k6-summary.json")"
@@ -469,11 +537,11 @@ changes="$(jq -r '
   | if ($v | length) < 2 then 0
     else [range(1; $v | length) | select($v[.] != $v[. - 1])] | length
     end' "$OUTDIR/series.json" 2>/dev/null || echo 0)"
-if [[ "$ARM" != "static" ]] && [[ "${changes:-0}" == "0" ]]; then
+if ! is_static_arm && [[ "${changes:-0}" == "0" ]]; then
   REASONS+=("spec.replicas never changed under an autoscaled arm: the controller was not driving the Deployment")
 fi
-if [[ "$ARM" == "static" ]] && [[ "${changes:-0}" != "0" ]]; then
-  REASONS+=("spec.replicas changed $changes times under the static arm: a controller is still attached")
+if is_static_arm && [[ "${changes:-0}" != "0" ]]; then
+  REASONS+=("spec.replicas changed $changes times under the $ARM arm: a controller is still attached")
 fi
 
 [[ "$captured" == "$total" ]] || info "note: $((total - captured)) series empty (expected for autoscaler_* on non-ours arms)"
@@ -507,6 +575,7 @@ jq -n \
   --argjson t_start "$T_START" --argjson t_end "$T_END" \
   --argjson t_capture_start "$T_CAPTURE_START" --argjson t_capture_end "$T_CAPTURE_END" \
   --argjson initial_replicas "$INITIAL_REPLICAS" --argjson static_replicas "$STATIC_REPLICAS" \
+  --argjson pinned_replicas "$PINNED_REPLICAS" \
   --argjson restarts "$RESTARTS" --argjson k6_rc "$K6_RC" \
   --argjson lat_p50 "$LAT_P50" --argjson lat_p95 "$LAT_P95" --argjson lat_p99 "$LAT_P99" \
   --arg git_sha "$(git -C "$REPO" rev-parse HEAD)" \
@@ -523,7 +592,7 @@ jq -n \
        warmup_seconds: $warmup, settle_seconds: $settle, step: $step
      },
      fleet: { initial_replicas: $initial_replicas, static_replicas: $static_replicas,
-              container_restarts: $restarts },
+              pinned_replicas: $pinned_replicas, container_restarts: $restarts },
      latency_window_seconds: { p50: $lat_p50, p95: $lat_p95, p99: $lat_p99 },
      cluster: { context: $context, namespace: $namespace, deployment: $deployment,
                 kubernetes: $kubectl_version },

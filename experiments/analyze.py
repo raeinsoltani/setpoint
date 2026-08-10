@@ -70,6 +70,7 @@ SLA_LIMIT = TARGET * (1 + TOLERANCE)
 # Arm order is presentation order everywhere: baselines first, ours after, the
 # deliberately-unstable variant last.
 ARM_ORDER = [
+    "static-peak",
     "static",
     "hpa-cpu",
     "hpa-custom",
@@ -78,6 +79,7 @@ ARM_ORDER = [
     "ours-predictive-per-replica",
 ]
 ARM_COLOR = {
+    "static-peak": "#4d4d4d",
     "static": "#888888",
     "hpa-cpu": "#b3446c",
     "hpa-custom": "#7a5195",
@@ -86,6 +88,8 @@ ARM_COLOR = {
     "ours-predictive-per-replica": "#c0392b",
 }
 # Which cluster arm corresponds to which simulator strategy, for the ordering check.
+# `static-peak` has no simulator equivalent: the simulator's static arm is hardcoded to
+# 8 replicas (sim/demo/simulate.py, ReplicaPool.ready), which is the `static` arm here.
 SIM_EQUIVALENT = {
     "static": "static",
     "ours-threshold": "threshold",
