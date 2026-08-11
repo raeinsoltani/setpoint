@@ -1,0 +1,46 @@
+# Helm values for prometheus-adapter, which exists solely to serve the `hpa-custom`
+# arm (deploy/hpa/hpa-custom.yaml).
+#
+#   docker pull registry.k8s.io/prometheus-adapter/prometheus-adapter:v0.12.0
+#   helm upgrade --install prometheus-adapter prometheus-community/prometheus-adapter \
+#     -n monitoring -f deploy/prometheus-adapter/values.yaml --wait
+#
+# The `docker pull` first is not optional on this host: the local registry mirror
+# breaks kubelet's pulls from quay.io and ghcr.io, and an image already in the
+# daemon's store is used without a pull. See docs/lab-notebook.md §10.
+
+prometheus:
+  url: http://monitoring-kube-prometheus-prometheus.monitoring.svc
+  port: 9090
+
+# Only one rule matters here. Everything else the chart ships by default is
+# resource-metrics duplication of metrics-server, which is already installed and
+# already serves `hpa-cpu` — two things answering the same API is exactly the kind of
+# ambiguity the experiment harness exists to prevent.
+rules:
+  default: false
+  custom:
+    # Exposes the sample app's request rate as a Pods metric. `hpa-custom` targets it
+    # with AverageValue: 100, which divides the summed rate by the number of *ready*
+    # pods — the same formula our own policy uses, so the two arms differ only in
+    # policy. That equality is the entire point of the arm; if this query changes,
+    # the arm stops isolating the claim.
+    - seriesQuery: 'http_requests_total{namespace!="",pod!=""}'
+      resources:
+        overrides:
+          namespace: {resource: "namespace"}
+          pod: {resource: "pod"}
+      name:
+        matches: "^http_requests_total$"
+        as: "http_requests_per_second"
+      # 1m to match the window the autoscaler's own PromQL uses. A shorter window
+      # would make the HPA arm strictly twitchier than ours for a reason that has
+      # nothing to do with the policy under test.
+      metricsQuery: 'sum(rate(<<.Series>>{<<.LabelMatchers>>}[1m])) by (<<.GroupBy>>)'
+
+resources:
+  requests:
+    cpu: 50m
+    memory: 64Mi
+  limits:
+    memory: 128Mi
