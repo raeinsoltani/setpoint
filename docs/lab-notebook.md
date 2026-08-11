@@ -800,3 +800,80 @@ has not been calibrated.** Three of the defects in §11.7–11.8 were in the che
 the system under test, and all three biased toward *rejecting good runs* — the failure mode
 that is invisible until it has quietly eaten a day of cluster time. Test a new arm at
 `TIME_SCALE=20` before spending 34 minutes on it.
+
+### 11.9 The first complete arm set: six-for-six on `ramp` — 2026-08-11
+
+Relaunched on AC power with the lid open. **All six arms valid**, every measured window
+1800–1802 s against an expected 1800 — no lost wall clock, so §11.7's gate has now been read
+against a clean input as well as a broken one.
+
+| Arm | SLA violations | Replica-s | Under-prov. | Over-prov. | CPU core-s | Reaction (median) | Scale ↑/↓ | Reversals | p95 |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| `static-peak` (12) | 0.0% | 21,720 | 0 | 8,450 | 2,640.8 | — | 0/0 | 0 | 2.4 ms |
+| `static` (8) | 35.6% | 14,480 | 2,420 | 3,630 | 2,631.2 | — | 0/0 | 0 | 2.4 ms |
+| `hpa-cpu` | 0.0% | 12,990 | 605 | 325 | 2,586.0 | 70.0 s | 8/0 | 0 | 2.4 ms |
+| `ours-threshold` | 4.1% | 11,810 | 1,460 | 0 | 2,476.7 | 110.0 s | 8/0 | 0 | 2.5 ms |
+| `ours-predictive` | 0.0% | 13,515 | 270 | 575 | 2,585.1 | 30.0 s | 10/0 | 0 | 2.4 ms |
+| `ours-predictive-per-replica` | 0.0% | 12,900 | 885 | 515 | 2,475.9 | 87.5 s | 11/3 | **5** | 2.5 ms |
+
+**The SLA-violation column does not discriminate on this workload.** Four of six arms sit at
+0.0%. `ramp` rises by 1000 req/s over 20 minutes — about 0.83 req/s per second, or roughly
+one additional replica every two minutes — which is slow enough that a 15-second reconcile
+loop and a 30-second pod start-up can track it reactively. The headline metric saturates,
+and reporting only that column would say the arms are indistinguishable when they are not.
+The columns that separate them here are **under-provisioning replica-seconds** and **median
+reaction time**. Note this in the evaluation chapter rather than quietly picking the
+flattering column.
+
+What the numbers actually support:
+
+1. **`static-peak` is the cost argument, and it is a large one.** Same 0.0% SLA as
+   `ours-predictive`, for 21,720 replica-seconds against 13,515 — **61% more capacity for
+   identical SLA outcomes**. This is the comparison the evaluation chapter was missing while
+   `static` was the only baseline, and it is the one that does not look rigged.
+2. **`ours-predictive` buys responsiveness, not SLA.** Against `hpa-cpu` it cuts median
+   reaction from 70 s to **30 s** and under-provisioning from 605 to **270 replica-seconds**
+   — less than half — while costing 4% more replica-seconds (13,515 vs 12,990). On `ramp`
+   that is the honest claim. It is *not* "predictive beats HPA on SLA": both are at zero.
+3. **`hpa-cpu` performs well and should be reported saying so.** §9.2 already commits to
+   publishing negative results; a slow monotonic ramp is a workload stock HPA handles, and
+   the thesis is stronger for saying it than for burying it.
+4. **`ours-threshold` is the cheapest arm and the only `ours-*` one that violates.** 11,810
+   replica-seconds, 4.1% violations, and the analyzer flags it never reaching 12 ready
+   replicas after the final step — it lags the top of the ramp and never catches up before
+   the window closes. Cheap because it under-provisions, which is the expected reactive
+   tradeoff and lands it in the right place on the curve.
+
+**The per-replica variant's pathology is real but invisible in the headline columns.** It
+scored 0.0% SLA and 12,900 replica-seconds — on those two numbers alone it looks *better*
+than the correct predictive policy. The instability shows up in exactly one place: **5
+direction reversals and 3 scale-downs, against 0 and 0 for every other arm.** A monotonically
+rising workload gives positive feedback little room to run: the forecast may be wrong, but
+the correction is almost always in the same direction, so the oscillation is damped by the
+workload rather than by the policy. §9.5 keeps this arm to demonstrate the failure mode, and
+`ramp` is the workload least able to demonstrate it. **`diurnal` and `bursty` are where the
+claim has to be made** — `diurnal` turns, and `bursty` has troughs after each burst, and both
+give the loop room to overshoot in both directions. If the reversal count does not blow up
+there, §3's central argument needs restating in terms of reversals rather than SLA cost.
+
+**Informal repeatability.** Two arms now have two independent `TIME_SCALE=1` runs on `ramp`
+(§11.6 and here): `static` 35.5% → 35.6% violations and 14,440 → 14,480 replica-seconds;
+`ours-threshold` 5.2% → 4.1% and 12,050 → 11,810. The no-controller arm reproduces to
+~0.1%, the autoscaled one varies by ~1 percentage point. That is the difference between
+measuring an open loop and a closed one, and it sets the resolution: **differences below
+about 1.5 points of SLA violation between autoscaled arms are not distinguishable at n=1.**
+Every gap being leaned on above is far wider than that, but any future claim resting on a
+sub-1.5-point difference needs repeats before it can be made.
+
+**Open question 6 is answered for `ramp`.** Simulator and cluster agree on the ordering of
+all three simulator-comparable arms, on *both* headline metrics:
+
+| Metric | Simulator order | Cluster order |
+|---|---|---|
+| SLA violations | predictive < threshold < static | predictive < threshold < static |
+| Replica-seconds | threshold < predictive < static | threshold < predictive < static |
+
+The simulator's absolute magnitudes were never expected to match — it models a 30 s start-up
+and no network — but ordering agreement is what licenses using it to reason about
+configurations too expensive to run at the cluster. One pattern is not enough to close the
+question; it stays open until the remaining three are in.
