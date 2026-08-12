@@ -1012,3 +1012,85 @@ result, and the table should say so rather than leaving a dash to be misread as 
 scales down on either pattern (8/0 and 4/0). Worth checking whether the adapter's rate window
 is simply too long to see the decrease, since a controller that only ratchets upward is a
 finding about the configuration and not about custom metrics as an approach.
+
+### 11.12 Phase 6 measurement complete — 2026-08-12
+
+**Twenty-eight of twenty-eight arms measured, every one valid.** Four workloads x seven arms,
+all at `TIME_SCALE=1`, every measurement window 1800-1802 s against an expected 1800. The two
+invalid runs in `summary.md` are both historical (the 2026-08-09 sleep-destroyed run and the
+2026-08-10 smoke that caught the pre-`e443c60` gate bug); nothing from today failed.
+
+**The per-replica pathology across all four workloads.** Direction reversals:
+
+| Pattern | per-replica | `ours-predictive` | `ours-threshold` | `hpa-cpu` | `hpa-custom` |
+|---|---:|---:|---:|---:|---:|
+| `ramp` | **5** | 0 | 0 | 0 | 0 |
+| `diurnal` | 2 | 2 | 1 | 2 | 0 |
+| `spike` | **14** | 3 | 1 | 1 | 0 |
+| `bursty` | **10** | 6 | 5 | 5 | 0 |
+
+§11.11 called the driver "a step large relative to the control interval". With `bursty` in,
+a sharper statement is available and it is the one to defend: **`diurnal` is the only workload
+in the set that is smooth, and it is the only one where the pathology does not appear.**
+`pattern_diurnal` is `300 + 900 sin^2(pi t / 1800)` — infinitely differentiable. `spike` and
+`bursty` are step functions; `ramp` is continuous but has slope discontinuities at t=300 and
+t=1500, and shows 5 reversals against 0 for every other arm. The excitation is a discontinuity
+in the input *or its derivative*, not non-monotonicity — `diurnal` turns and does not oscillate,
+`ramp` never turns and does. Ranked by reversal ratio the ordering is `spike` (4.7x) > `bursty`
+(1.7x) > `ramp` (5 vs 0) > `diurnal` (1.0x), which tracks discontinuity severity.
+
+This is a stronger result than the proposal claimed, and it comes with a warning that belongs
+in the evaluation chapter: **a per-replica-forecasting policy measured only on a smooth
+workload will look stable.** On `diurnal` the broken variant scores 0.0% SLA and is *cheaper*
+than the correct one (14,915 vs 15,180 replica-seconds). Anyone validating on a single smooth
+curve would ship it.
+
+**`hpa-custom` never scales down, on any workload.** Scale up/down: 9/0 on `ramp`, 8/0 on
+`diurnal`, 4/0 on `spike`, 4/0 on `bursty` — against 6/9, 3/4 and 7/6 for `hpa-cpu` on the
+three non-monotonic patterns. It is also the most expensive autoscaled arm on all three
+(17,115 / 17,105 / 18,980 replica-seconds).
+
+Two explanations are **ruled out**, both checked directly rather than assumed:
+
+- *Not the HPA behaviour config.* `hpa-cpu.yaml` and `hpa-custom.yaml` carry identical
+  `behavior` blocks — `scaleUp` stabilization 0, `scaleDown` stabilization 90 s, 100%/15 s
+  policies on both. `hpa-cpu` scales down freely under the same settings.
+- *Not the adapter's rate window.* `metricsQuery` uses `[1m]`, deliberately matched to the
+  autoscaler's own PromQL. An earlier guess in this notebook that the window was "too long to
+  see a decrease" is wrong and should not be followed.
+
+The remaining candidate is the HPA's **missing-metrics rule**: when a Pods metric is absent for
+some pods, the scale-*down* computation conservatively assumes those pods are at 100% of
+target, which suppresses scale-down entirely. `http_requests_per_second` only exists for a pod
+once it has served a request inside the `[1m]` window, so any recently-started or idle pod is
+missing from the adapter's response. That is a hypothesis, not a finding — it needs a direct
+check against `/apis/custom.metrics.k8s.io/.../pods/*/http_requests_per_second` during a
+scale-down, compared against the pod list.
+
+**This matters for the headline claim and must not be left implicit.** `hpa-custom` is the arm
+that isolates policy from signal, and if it cannot scale down for a configuration reason, then
+part of `ours-predictive`'s cost advantage over it is unearned. The SLA and reaction-time
+advantages are unaffected — those come from scaling *up* — but the replica-second comparison
+against `hpa-custom` should be reported with this caveat until the check is done.
+
+**Open question 6 closes with a qualified answer: 5 of 8 orderings agree.** All three
+disagreements are on the step-function workloads, and all three run the same direction:
+
+| Workload | Metric | Simulator | Cluster |
+|---|---|---|---|
+| `bursty` | SLA | threshold < predictive | **predictive < threshold** |
+| `spike` | SLA | threshold < predictive | **predictive < threshold** |
+| `spike` | Replica-s | threshold < static < predictive | threshold < predictive < static |
+
+**The simulator understates the predictive policy on step workloads** — it ranks the reactive
+policy ahead on SLA where the cluster ranks predictive ahead. The likely cause is that the
+simulator scales down instantly (`pool.ready = target`, no drain) and has no measurement lag:
+`observed` is `total_load / ready` computed exactly, whereas the cluster pays a scrape interval
+plus a 1-minute `rate()` window before a change is visible. Measurement lag penalises a
+reactive policy and is precisely what a forecast compensates for, so removing it flatters the
+reactive arm. Both smooth-workload patterns agree on both metrics.
+
+The practical consequence for Phase 7: **the simulator can be used to reason about
+configurations on smooth workloads, but its ordering on step workloads is not trustworthy and
+any sweep result there needs a cluster spot-check.** That is a narrower licence than §11.9
+anticipated, and it is better to state it than to have it found.
