@@ -877,3 +877,83 @@ The simulator's absolute magnitudes were never expected to match — it models a
 and no network — but ordering agreement is what licenses using it to reason about
 configurations too expensive to run at the cluster. One pattern is not enough to close the
 question; it stays open until the remaining three are in.
+
+### 11.10 `hpa-custom` runs at last, and a clamshell costs the diurnal forecaster — 2026-08-12
+
+The unattended chain launched on the evening of the 11th survived something it was designed
+to survive: **the agent session driving it was reaped at 23:47** (`ptyhost_orphan_watchdog`,
+the terminal host going away), and the work continued for another seven hours without it.
+The chain was deliberately started detached under its own `caffeinate -dis` rather than as a
+child of the session. That detail is the only reason there is anything to write here. Record
+it as harness practice: **an unattended run must not be a child of the thing watching it.**
+
+`pmset -g log` is clean from the 17:26 wake straight through to 06:39 — thirteen hours with
+no sleep entry at all. §11.7's mitigation holds when the lid stays open.
+
+**`hpa-custom` has now executed.** prometheus-adapter v0.12.0 installed (pre-pulled into the
+docker store first, per §11.4's registry-mirror problem), the custom metrics API served
+`http_requests_per_second`, the `TIME_SCALE=10` smoke passed, and the `TIME_SCALE=1` backfill
+on `ramp` is valid. **`ramp` is seven-for-seven.**
+
+| Arm | SLA | Replica-s | Under-prov. | Reaction | Reversals |
+|---|---:|---:|---:|---:|---:|
+| `hpa-custom` | 4.7% | 12,025 | 1,245 | 127.5 s | 0 |
+| `ours-threshold` | 4.1% | 11,810 | 1,460 | 110.0 s | 0 |
+| `ours-predictive` | 0.0% | 13,515 | 270 | 30.0 s | 0 |
+
+Two things fall out of this, and the second was not anticipated.
+
+1. **The ablation is now clean.** `hpa-custom` and `ours-predictive` read the *same signal*
+   at the *same setpoint* and differ only in the policy. 4.7% → 0.0% violations, 127.5 s →
+   30.0 s median reaction, 1,245 → 270 under-provisioned replica-seconds, for 12% more
+   replica-seconds. Every alternative explanation involving the choice of metric is now
+   excluded by construction. This is the single most defensible comparison in the project
+   and it is the one to build §3's argument on.
+2. **`hpa-custom` and `ours-threshold` are near-replicates of each other.** 4.7% vs 4.1%,
+   127.5 s vs 110.0 s, 12,025 vs 11,810 replica-seconds — two independently implemented
+   reactive controllers on one signal landing within 0.6 points, inside the ~1.5-point
+   resolution §11.9 established. That is worth stating explicitly in the evaluation chapter:
+   **our reactive baseline behaves like the stock one**, so the predictive gain in (1) is not
+   an artifact of having written a weak comparator.
+
+**A clamshell sleep destroyed `diurnal / ours-predictive`.** The lid was closed at 06:41:56,
+about 40 s into the measurement window, and the host slept 164 s (`pmset`: wake at 06:44:48).
+k6's scenario clock paused while wall clock did not — the offset was measured live at a fixed
+2m44s and would have closed the window at ~1964 s against §11.7's 1890 s limit.
+
+The run was killed rather than allowed to finish. **It could not have been re-scored, and the
+reason generalises beyond a shifted time base.** The whole VM froze, not just the load
+generator: for 164 s Prometheus scraped nothing and the autoscaler reconciled nothing, so on
+wake the *forecaster's history buffer had a hole in it* and its horizon-3 extrapolation
+continued from stale state against a pattern that had moved on without it. Everything after
+the wake is the policy recovering from an input outage, not the policy under test. A constant
+time offset is subtractable; a discontinuity injected into the controller's own input is not.
+**Sleep during a run is unrecoverable for predictive arms specifically, in a way it is not
+for `static`.**
+
+**A harness defect surfaced by the kill, and it would have propagated silently.** Killing a
+`run.sh` orphans the `kubectl port-forward` it supervises. `run.sh` then takes its
+*"prometheus already reachable on :9090 (reusing)"* branch on every subsequent arm and sets
+`PF_PID=""` — so seventeen remaining runs would each have depended on one unsupervised
+forward inherited from a killed process, reintroducing exactly the single point of failure
+commit `77dec41` was written to remove. The reuse branch is correct by design (it supports an
+externally-managed forward) but it cannot tell a *supervised* external forward from an
+orphan. Mitigated for this chain by replacing the orphan with a standalone supervised loop;
+the 2-second handover was verified against the live `hpa-cpu` run, which passed its
+metric-pipeline gate 33 s later reading 299.99 req/s across 6 targets. **If this recurs,
+consider having `run.sh` adopt-or-replace rather than blindly reuse.**
+
+**`diurnal`, three arms in, is already doing what `ramp` could not.**
+
+| Arm | SLA | Replica-s | Under-prov. | Over-prov. | Scale ↑/↓ | Reversals |
+|---|---:|---:|---:|---:|---:|---:|
+| `static-peak` (12) | 0.0% | 21,720 | 0 | 7,290 | 0/0 | 0 |
+| `static` (8) | 40.3% | 14,480 | 2,490 | 2,540 | 0/0 | 0 |
+| `ours-threshold` | 3.6% | 14,545 | 1,025 | 1,140 | 8/8 | 1 |
+
+`ours-threshold` scales **down eight times and reverses once** here, against 0 and 0 on
+`ramp`. The oscillation axis is live on this pattern, which is the precondition §11.9 said
+had to hold before `ours-predictive-per-replica` could be falsified at all. Also note
+`ours-threshold` costs 14,545 replica-seconds against `static`'s 14,480 — **statistically the
+same spend for 3.6% violations instead of 40.3%**, which is a cleaner statement of the value
+of scaling at all than anything `ramp` produced.
