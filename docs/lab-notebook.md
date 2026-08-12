@@ -957,3 +957,58 @@ had to hold before `ours-predictive-per-replica` could be falsified at all. Also
 `ours-threshold` costs 14,545 replica-seconds against `static`'s 14,480 — **statistically the
 same spend for 3.6% violations instead of 40.3%**, which is a cleaner statement of the value
 of scaling at all than anything `ramp` produced.
+
+### 11.11 The per-replica pathology is real, and `diurnal` does not show it — 2026-08-12
+
+`diurnal` and `spike` are both seven-for-seven. Twenty-one of twenty-eight arms are measured,
+all valid, no failed runs. `bursty` is the last pattern outstanding.
+
+**§11.9's prediction about where the per-replica variant would break was wrong, and the
+correction matters more than the prediction did.** It reasoned that `ramp` hid the pathology
+because a monotonic workload gives positive feedback nowhere to run, and that `diurnal` would
+expose it because `diurnal` turns. Reversal counts for `ours-predictive-per-replica`:
+
+| Pattern | per-replica | `ours-predictive` | best other arm |
+|---|---:|---:|---:|
+| `ramp` | 5 | 0 | 0 |
+| `diurnal` | **2** | 2 | 0 |
+| `spike` | **14** | 3 | 0 |
+
+On `diurnal` it does not discriminate at all — 2 reversals, the same as the correct predictive
+policy and the same as `hpa-cpu`. On `spike` it is unmistakable: **14 reversals against 3, and
+9/9 scale up/down against 5/7.**
+
+So the driver is not whether the workload *turns*. It is whether it presents a **step large
+relative to the control interval**. `diurnal` rises and falls smoothly enough that the loop
+settles between 15-second reconciles, so the feedback term never compounds; `spike`'s 4x step
+moves the observed per-replica metric so far in one interval that the forecaster extrapolates
+its own correction and overshoots, then corrects back. This is a better statement of §3's
+mechanism than the one in the proposal: **the instability is excited by input steps, not by
+non-monotonicity.** State it that way in the evaluation chapter, and note that a policy
+looking stable on a smooth workload is not evidence that it is stable.
+
+**The ablation's strongest form is on `diurnal`.** `ours-predictive` against `hpa-custom` —
+identical signal, identical setpoint, policy the only difference:
+
+| | SLA | Replica-s | Reaction |
+|---|---:|---:|---:|
+| `hpa-custom` | 3.0% | 17,115 | 97.5 s |
+| `ours-predictive` | **0.0%** | **15,180** | **27.5 s** |
+
+Better on all three axes simultaneously, which neither `ramp` (where it cost 12% more
+capacity) nor `spike` (equal reaction) produced. `ours-predictive` also beats `hpa-cpu` here
+on both cost and reaction (15,180 vs 15,570 replica-seconds, 27.5 s vs 55.0 s) at equal 0.0%
+SLA — the first pattern where the predictive policy dominates stock HPA outright rather than
+trading cost for responsiveness.
+
+**`spike` also produces the first arm that cannot report a reaction time.** `static` and
+`ours-threshold` both show `—` for median reaction, and the analyzer flags `ours-threshold` as
+never reaching 13 ready replicas after the step at t=600s. It never caught the spike inside
+the window at all, so there is no reaction to measure. That is not a missing number; it is the
+result, and the table should say so rather than leaving a dash to be misread as "instant".
+
+**`hpa-custom` is consistently the most expensive autoscaled arm** — 17,115 replica-seconds on
+`diurnal` and 17,105 on `spike`, against 14,085–15,180 for `ours-predictive` — and it never
+scales down on either pattern (8/0 and 4/0). Worth checking whether the adapter's rate window
+is simply too long to see the decrease, since a controller that only ratchets upward is a
+finding about the configuration and not about custom metrics as an approach.
