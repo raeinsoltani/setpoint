@@ -77,6 +77,10 @@ ARM_ORDER = [
     "ours-threshold",
     "ours-predictive",
     "ours-predictive-per-replica",
+    # Phase 7.1 stabilizer ablation. Listed last so they sit apart from the arms the
+    # evaluation chapter compares against each other.
+    "ours-predictive-nostab",
+    "ours-predictive-per-replica-nostab",
 ]
 ARM_COLOR = {
     "static-peak": "#4d4d4d",
@@ -86,6 +90,9 @@ ARM_COLOR = {
     "ours-threshold": "#e08a00",          # matches the simulator's `threshold`
     "ours-predictive": "#2a6099",         # matches the simulator's `predictive`
     "ours-predictive-per-replica": "#c0392b",
+    # Same hues as the arms they ablate, so a figure reads as "this policy, undamped".
+    "ours-predictive-nostab": "#7fb3d5",
+    "ours-predictive-per-replica-nostab": "#e8887c",
 }
 # Which cluster arm corresponds to which simulator strategy, for the ordering check.
 # `static-peak` has no simulator equivalent: the simulator's static arm is hardcoded to
@@ -589,7 +596,19 @@ def ordering_check(by_pattern: Dict[str, List[Metrics]]) -> List[str]:
     return lines
 
 
-def write_summary(by_pattern: Dict[str, List[Metrics]], excluded: List[Run], path: str) -> None:
+def _spread(values: List[float], fmt: str = "{:.1f}") -> str:
+    """Every value, then the max-min gap. At n=2-3 a mean hides more than it shows."""
+    finite = [v for v in values if v is not None and math.isfinite(v)]
+    if not finite:
+        return "—"
+    shown = ", ".join(fmt.format(v) for v in finite)
+    if len(finite) < 2:
+        return shown
+    return f"{shown}  (Δ{fmt.format(max(finite) - min(finite))})"
+
+
+def write_summary(by_pattern: Dict[str, List[Metrics]], excluded: List[Run], path: str,
+                  repeats: Optional[Dict[Tuple[str, str], List[Metrics]]] = None) -> None:
     lines = [
         "# Cluster evaluation summary",
         "",
@@ -621,6 +640,33 @@ def write_summary(by_pattern: Dict[str, List[Metrics]], excluded: List[Run], pat
         "",
     ]
     lines += ordering_check(by_pattern)
+
+    multi = {k: v for k, v in (repeats or {}).items() if len(v) > 1}
+    if multi:
+        lines += [
+            "",
+            "## Repeatability",
+            "",
+            "Independent `TIME_SCALE=1` runs of the same arm on the same workload. The",
+            "tables above report the **latest** run per arm; this reports every one.",
+            "",
+            "This section sets the resolution of every comparison made elsewhere: a",
+            "difference between two arms that is smaller than the spread of one arm",
+            "against itself is not a result. Values are listed individually rather than",
+            "averaged, because at n=2-3 a mean hides more than it shows.",
+            "",
+            "| Workload | Arm | n | SLA violations % | Replica-seconds | Reversals | Reaction (median) s |",
+            "|---|---|---:|---|---|---|---|",
+        ]
+        for (pattern, arm) in sorted(multi):
+            ms = multi[(pattern, arm)]
+            lines.append(
+                f"| `{pattern}` | `{arm}` | {len(ms)} "
+                f"| {_spread([m.sla_violation_pct for m in ms])} "
+                f"| {_spread([m.replica_seconds for m in ms], '{:,.0f}')} "
+                f"| {_spread([float(m.reversals) for m in ms], '{:.0f}')} "
+                f"| {_spread([m.median_reaction_s for m in ms])} |"
+            )
 
     if excluded:
         lines += ["", "## Excluded runs", "",
@@ -673,10 +719,24 @@ def main() -> int:
         if key not in latest or r.meta.get("timestamp", "") > latest[key].meta.get("timestamp", ""):
             latest[key] = r
 
+    # Score *every* kept run, not just the latest. Deliberate repeats are how the
+    # measurement resolution gets established (§11.9), and collapsing them to one row
+    # would silently discard precisely the runs that were paid for to quantify spread.
+    metrics_by_path: Dict[str, Metrics] = {}
+    repeats: Dict[Tuple[str, str], List[Metrics]] = {}
+    for r in kept:
+        m = compute(r)
+        if m is None:
+            continue
+        metrics_by_path[r.path] = m
+        repeats.setdefault((r.pattern, r.arm), []).append(m)
+    for ms in repeats.values():
+        ms.sort(key=lambda m: m.timestamp)
+
     all_metrics: List[Metrics] = []
     runs_by_pattern: Dict[str, List[Run]] = {}
     for (pattern, arm), run in sorted(latest.items()):
-        m = compute(run)
+        m = metrics_by_path.get(run.path)
         if m is None:
             continue
         all_metrics.append(m)
@@ -710,7 +770,7 @@ def main() -> int:
             print("  matplotlib unavailable; figures skipped")
 
     sp = os.path.join(args.out, "summary.md")
-    write_summary(by_pattern, excluded, sp)
+    write_summary(by_pattern, excluded, sp, repeats)
     print(f"  wrote {os.path.relpath(sp, REPO)}")
 
     flagged = [(m, n) for m in all_metrics for n in m.notes]

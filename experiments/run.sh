@@ -70,7 +70,7 @@ PYTHON_BIN="$([ -x "$(dirname "${BASH_SOURCE[0]}")/../sim/.venv/bin/python" ] \
   && echo "$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/sim/.venv/bin/python" \
   || echo python3)"
 
-ARMS="static static-peak ours-threshold ours-predictive ours-predictive-per-replica hpa-cpu hpa-custom"
+ARMS="static static-peak ours-threshold ours-predictive ours-predictive-per-replica hpa-cpu hpa-custom ours-predictive-nostab ours-predictive-per-replica-nostab"
 PATTERNS="spike diurnal bursty ramp"
 
 usage() {
@@ -235,14 +235,22 @@ CONFIG_APPLIED=""
 
 apply_setpoint_with_policy() {
   local policy="$1"
+  # Optional stabilization window. Empty means "leave the ConfigMap's value alone";
+  # the `-nostab` arms pass 0 to disable the damper. §3.3 records that the stabilizer
+  # is a damper and damping the symptom hides the property under test, so Phase 7.1
+  # measures how much of the oscillation it masks and at what cost.
+  local stab="${2:-}"
   local tmp; tmp="$(mktemp -t setpoint-cm)"
 
   # Rewrite only `name:` inside the `policy:` block, leaving every comment in the
   # ConfigMap intact. A blanket sed would also hit metadata.name.
-  awk -v p="$policy" '
+  awk -v p="$policy" -v s="$stab" '
     /^    policy:/ { inpolicy = 1 }
     /^    scaler:/ { inpolicy = 0 }
     inpolicy && /^      name:/ && !done { sub(/name:[[:space:]]*[a-z-]+/, "name: " p); done = 1 }
+    inpolicy && s != "" && /^      stabilization_window_seconds:/ {
+      sub(/stabilization_window_seconds:[[:space:]]*[0-9]+/, "stabilization_window_seconds: " s)
+    }
     { print }
   ' "$REPO/deploy/setpoint/configmap.yaml" > "$tmp"
 
@@ -265,7 +273,20 @@ apply_setpoint_with_policy() {
   live="$(kubectl get cm setpoint-config -n "$NAMESPACE" -o jsonpath='{.data.config\.yaml}' \
           | awk '/^policy:/{p=1} p && /^  name:/{print $2; exit}')"
   [[ "$live" == "$policy" ]] || die "live ConfigMap has policy.name=$live, expected $policy"
-  info "setpoint running policy '$policy' (verified against the live ConfigMap)"
+
+  # The stabilizer is the variable under test in Phase 7.1, so it gets the same
+  # read-back-from-the-cluster treatment as the policy name. An arm that silently ran
+  # with the wrong damper would be worse than no measurement.
+  if [[ -n "$stab" ]]; then
+    local live_stab
+    live_stab="$(kubectl get cm setpoint-config -n "$NAMESPACE" -o jsonpath='{.data.config\.yaml}' \
+                 | awk '/^policy:/{p=1} p && /^  stabilization_window_seconds:/{print $2; exit}')"
+    [[ "$live_stab" == "$stab" ]] \
+      || die "live ConfigMap has stabilization_window_seconds=$live_stab, expected $stab"
+    info "setpoint running policy '$policy', stabilization_window=${stab}s (both verified against the live ConfigMap)"
+  else
+    info "setpoint running policy '$policy' (verified against the live ConfigMap)"
+  fi
 }
 
 case "$ARM" in
@@ -294,6 +315,10 @@ print(math.ceil(peak / TARGET))
   ours-threshold)               apply_setpoint_with_policy threshold ;;
   ours-predictive)              apply_setpoint_with_policy predictive ;;
   ours-predictive-per-replica)  apply_setpoint_with_policy predictive-per-replica ;;
+  # Phase 7.1: the same two policies with the 90s stabilizer removed, to measure how
+  # much oscillation it masks and what the masking costs in over-provisioning.
+  ours-predictive-nostab)             apply_setpoint_with_policy predictive 0 ;;
+  ours-predictive-per-replica-nostab) apply_setpoint_with_policy predictive-per-replica 0 ;;
   hpa-cpu)
     kubectl get apiservice v1beta1.metrics.k8s.io >/dev/null 2>&1 \
       || die "hpa-cpu needs metrics-server:

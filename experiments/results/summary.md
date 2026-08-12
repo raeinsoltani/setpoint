@@ -53,6 +53,21 @@ so its magnitudes are not expected to match the cluster's.
 | `spike` | SLA violations | ours-threshold < ours-predictive < static | ours-predictive < ours-threshold < static | **no** |
 | `spike` | Replica-seconds | ours-threshold < static < ours-predictive | ours-threshold < ours-predictive < static | **no** |
 
+## Repeatability
+
+Independent `TIME_SCALE=1` runs of the same arm on the same workload. The
+tables above report the **latest** run per arm; this reports every one.
+
+This section sets the resolution of every comparison made elsewhere: a
+difference between two arms that is smaller than the spread of one arm
+against itself is not a result. Values are listed individually rather than
+averaged, because at n=2-3 a mean hides more than it shows.
+
+| Workload | Arm | n | SLA violations % | Replica-seconds | Reversals | Reaction (median) s |
+|---|---|---:|---|---|---|---|
+| `ramp` | `ours-threshold` | 2 | 5.2, 4.1  (Δ1.1) | 12,050, 11,810  (Δ240) | 0, 0  (Δ0) | 125.0, 110.0  (Δ15.0) |
+| `ramp` | `static` | 2 | 35.5, 35.6  (Δ0.2) | 14,440, 14,480  (Δ40) | 0, 0  (Δ0) | 0.0, 0.0  (Δ0.0) |
+
 ## Excluded runs
 
 | Run | Reasons |
