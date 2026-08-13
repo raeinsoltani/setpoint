@@ -716,13 +716,17 @@ def write_summary(by_pattern: Dict[str, List[Metrics]], excluded: List[Run], pat
             "against itself is not a result. Values are listed individually rather than",
             "averaged, because at n=2-3 a mean hides more than it shows.",
             "",
-            "| Workload | Arm | n | SLA violations % | Replica-seconds | Reversals | Reaction (median) s |",
-            "|---|---|---:|---|---|---|---|",
+            "Grouped by load contract as well as by arm: runs either side of §11.13 are",
+            "two experiments, not repeats, and pooling them would report the gap between",
+            "them as this arm's noise floor.",
+            "",
+            "| Workload | Arm | Contract | n | SLA violations % | Replica-seconds | Reversals | Reaction (median) s |",
+            "|---|---|---|---:|---|---|---|---|",
         ]
-        for (pattern, arm) in sorted(multi):
-            ms = multi[(pattern, arm)]
+        for (pattern, arm, contract) in sorted(multi):
+            ms = multi[(pattern, arm, contract)]
             lines.append(
-                f"| `{pattern}` | `{arm}` | {len(ms)} "
+                f"| `{pattern}` | `{arm}` | `{contract}` | {len(ms)} "
                 f"| {_spread([m.sla_violation_pct for m in ms])} "
                 f"| {_spread([m.replica_seconds for m in ms], '{:,.0f}')} "
                 f"| {_spread([float(m.reversals) for m in ms], '{:.0f}')} "
@@ -791,13 +795,21 @@ def main() -> int:
     # measurement resolution gets established (§11.9), and collapsing them to one row
     # would silently discard precisely the runs that were paid for to quantify spread.
     metrics_by_path: Dict[str, Metrics] = {}
-    repeats: Dict[Tuple[str, str], List[Metrics]] = {}
+    # Keyed by load contract as well as (pattern, arm). Two runs of the same arm under
+    # different contracts are not repeats of one condition, they are two experiments,
+    # and pooling them reports the gap between the experiments as this arm's noise
+    # floor. That would be quietly catastrophic here: this section defines the
+    # resolution rule the whole evaluation leans on ("a difference smaller than one
+    # arm's spread against itself is not a result"), so an inflated spread silently
+    # disqualifies real findings. Seen for real on bursty/hpa-custom, where pooling
+    # across §11.13 produced a Δ of 7,015 replica-seconds.
+    repeats: Dict[Tuple[str, str, str], List[Metrics]] = {}
     for r in kept:
         m = compute(r)
         if m is None:
             continue
         metrics_by_path[r.path] = m
-        repeats.setdefault((r.pattern, r.arm), []).append(m)
+        repeats.setdefault((r.pattern, r.arm, r.contract), []).append(m)
     for ms in repeats.values():
         ms.sort(key=lambda m: m.timestamp)
 

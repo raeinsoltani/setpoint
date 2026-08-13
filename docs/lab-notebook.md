@@ -993,6 +993,12 @@ mechanism than the one in the proposal: **the instability is excited by input st
 non-monotonicity.** State it that way in the evaluation chapter, and note that a policy
 looking stable on a smooth workload is not evidence that it is stable.
 
+> **Withdrawn, 2026-08-13 (§11.16).** The `hpa-custom` figures below are void — that arm read
+> per-pod metrics through the broken load contract of §11.13. Re-measured, `hpa-custom` on
+> `diurnal` is 4.7% SLA / **14,365** replica-s / 112.5 s, so `ours-predictive` (0.0% /
+> 15,180 / 27.5 s) wins SLA and reaction but **loses on cost by 5.4%**. It is a trade, not
+> the outright domination claimed below.
+
 **The ablation's strongest form is on `diurnal`.** `ours-predictive` against `hpa-custom` —
 identical signal, identical setpoint, policy the only difference:
 
@@ -1058,6 +1064,12 @@ in the evaluation chapter: **a per-replica-forecasting policy measured only on a
 workload will look stable.** On `diurnal` the broken variant scores 0.0% SLA and is *cheaper*
 than the correct one (14,915 vs 15,180 replica-seconds). Anyone validating on a single smooth
 curve would ship it.
+
+> **Withdrawn, 2026-08-13 (§11.16).** An artifact of the §11.13 load defect, not a
+> property of custom metrics. Re-measured scale-downs are 3 / 11 / 7 / 14 on
+> `ramp` / `diurnal` / `spike` / `bursty`, and replica-seconds fall 16-37% on the three
+> workloads that turn while `ramp` moves 0.1% — exactly where the missing-metrics rule
+> predicts, which confirms the mechanism §11.12 proposed.
 
 **`hpa-custom` never scales down, on any workload.** Scale up/down: 9/0 on `ramp`, 8/0 on
 `diurnal`, 4/0 on `spike`, 4/0 on `bursty` — against 6/9, 3/4 and 7/6 for `hpa-cpu` on the
@@ -1265,3 +1277,72 @@ observed total load by ready count, so a throttled numerator *understates* the v
 
 Everything else in the Phase 6 tables stands as measured, on evidence rather than on the
 plausibility of the PromQL.
+
+### 11.16 `hpa-custom` re-measured, and §11.11's strongest claim does not survive — 2026-08-13
+
+All four `hpa-custom` runs redone under `per-request-connections-v2`, ~2 h, all valid. This
+was the one arm §11.13 left genuinely void: it is the only consumer of *per-pod* metrics, so
+the keep-alive defect corrupted its input rather than merely its latency column.
+
+**Pre-flight, before spending the two hours.** Driving 900 req/s under the new contract, the
+adapter reported **8 of 8 pods at ~112 rps each** — an even split. The old contract gave 3 of
+13 at 433 against a target of 100. Root cause confirmed fixed rather than presumed.
+
+**The missing-metrics hypothesis is now tested, not just plausible.** §11.12 proposed that
+HPA's rule — absent Pods metrics are assumed at 100% of target during scale-*down* — was
+suppressing scale-down entirely. If that is the mechanism, then the defect must not matter on
+a workload where nothing ever scales down. `ramp` is the only monotonic workload in the set:
+
+| Workload | scale-downs old → new | Replica-seconds old → new | Change |
+|---|---|---|---|
+| `ramp` | 2 → 3 | 12,025 → 12,040 | **+0.1%** |
+| `diurnal` | 1 → 11 | 17,115 → 14,365 | −16% |
+| `spike` | 0–1 → 7 | 17,055 → 12,255 | −28% |
+| `bursty` | 1 → 14 | 18,980 → 11,965 | −37% |
+
+`ramp` is unchanged to within 0.1%; the three workloads that turn all move sharply. The effect
+appears exactly where the mechanism predicts and nowhere else. **"`hpa-custom` never scales
+down" was an artifact of the load generator, not a property of custom metrics as an approach,
+and the claim is withdrawn.**
+
+**§11.11's strongest claim is withdrawn with it.** That section reported `ours-predictive`
+beating `hpa-custom` on all three axes at once on `diurnal` — identical signal, identical
+setpoint, policy the only difference — and called it the first outright domination. Redone:
+
+| `diurnal` | SLA | Replica-s | Reaction |
+|---|---:|---:|---:|
+| `hpa-custom` | 4.7% | **14,365** | 112.5 s |
+| `ours-predictive` | **0.0%** | 15,180 | **27.5 s** |
+
+`ours-predictive` still wins SLA outright and reaction by 4x, but **loses on cost by 5.4%**.
+The same shape holds on all four workloads: SLA 0.0–1.1% against 2.2–4.7%, reaction 20–35 s
+against 32.5–127.5 s, and 9–20% more capacity every time.
+
+**The defensible statement is a trade, not a domination: the predictive policy buys SLA and
+responsiveness with capacity.** That is weaker than what §11.11 claimed and it is what the
+evaluation chapter must say. Note what produced the error — a comparator that was quietly
+broken made our own arm look free. That is the failure mode an ablation exists to catch, and
+it was caught only because the arm was re-run rather than trusted.
+
+The headline claim is untouched. It is §11.14 — the stabilizer masking a fundamentally broken
+control law — which concerns the controller's own dynamics and does not involve `hpa-custom`.
+
+**Two harness defects found in the process, both fixed.**
+
+1. `analyze.py` pooled runs from either side of §11.13 as repeats of one condition. On
+   `bursty/hpa-custom` that reported a spread of **7,015 replica-seconds**, which the
+   Repeatability section would then present as this arm's noise floor — and since that section
+   defines the resolution rule the whole evaluation leans on, an inflated spread silently
+   disqualifies real findings. Repeats are now keyed by contract as well as by arm. Genuine
+   same-contract spreads are 40–295 replica-seconds.
+2. Mixed-contract tables carried nothing to say so. `summary.md` now opens with a banner
+   naming which rows were redone and which comparisons survive.
+
+**Adapter coverage logged continuously**, not spot-checked: `metrics-probe.tsv`, 609 samples
+at 10 s over the whole chain. Never more than 3 pods missing from the adapter and never for
+longer than 20 s consecutively, against 10 of 13 missing continuously under the old contract.
+Three samples show −1, the adapter briefly retaining a terminated pod inside its `[1m]`
+window, which is the expected benign artifact. Max fleet 13, tracked up and back down.
+
+**Re-measurement still owed:** real latency figures, and a physical demonstration that adding
+replicas serves more traffic. Neither is affected by anything above.
