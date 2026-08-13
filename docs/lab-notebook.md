@@ -960,6 +960,12 @@ of scaling at all than anything `ramp` produced.
 
 ### 11.11 The per-replica pathology is real, and `diurnal` does not show it — 2026-08-12
 
+> **Correction, 2026-08-13 (§11.13).** The `spike` reversal counts below are n=1. Repeated
+> three times, `ours-predictive-per-replica` gives **14, 4, 14** and `ours-predictive` gives
+> **3, 5, 7** — overlapping ranges. The 14-vs-3 comparison stands as an observation but is
+> not significant at n=3, and the evaluation chapter must not lean on it. The *mechanism*
+> claim survives, on the stronger evidence in §11.13.
+
 `diurnal` and `spike` are both seven-for-seven. Twenty-one of twenty-eight arms are measured,
 all valid, no failed runs. `bursty` is the last pattern outstanding.
 
@@ -1014,6 +1020,14 @@ is simply too long to see the decrease, since a controller that only ratchets up
 finding about the configuration and not about custom metrics as an approach.
 
 ### 11.12 Phase 6 measurement complete — 2026-08-12
+
+> **Correction, 2026-08-13 (§11.13).** Two claims below are withdrawn. (1) The `bursty`
+> reversal count of **10 vs 6** is an n=1 artifact: repeated three times it is per-replica
+> **10, 6, 5** against `ours-predictive` **6, 7, 9** — fully overlapping, per-replica
+> slightly *lower*. `bursty` does not show the pathology. (2) Every latency figure in this
+> section and everything derived from `hpa-custom` is invalid, because the load generator
+> was not reaching the fleet (§11.13). SLA %, replica-seconds and reversal counts are
+> arithmetically unaffected and are retained.
 
 **Twenty-eight of twenty-eight arms measured, every one valid.** Four workloads x seven arms,
 all at `TIME_SCALE=1`, every measurement window 1800-1802 s against an expected 1800. The two
@@ -1094,3 +1108,116 @@ The practical consequence for Phase 7: **the simulator can be used to reason abo
 configurations on smooth workloads, but its ordering on step workloads is not trustworthy and
 any sweep result there needs a cluster spot-check.** That is a narrower licence than §11.9
 anticipated, and it is better to state it than to have it found.
+
+### 11.13 The load never reached the fleet — 2026-08-13
+
+**Every run in this project up to and including 2026-08-12 delivered its load to three or
+four pods, no matter how many replicas were running.** This is the most serious measurement
+defect found so far, and the part of it that is *not* damaged is as important as the part
+that is, so both are set out below.
+
+`k6` uses HTTP keep-alive by default. Each VU holds one TCP connection for its lifetime, and
+a connection pins to whichever backend pod `kube-proxy` chose when it was opened. The sample
+app answers in about 2.4 ms, so `ramping-arrival-rate` never needed more than a handful of
+concurrent VUs to sustain 1300 req/s — and a handful of VUs is a handful of connections is a
+handful of pods. Nothing in the harness reported this, because k6 was delivering the full
+requested rate and every request returned 200.
+
+A controlled A/B at 800 req/s against 8 replicas, the same script either side:
+
+| | pods serving | delivered | p95 latency |
+|---|---|---|---|
+| keep-alive (every run to date) | **1 of 8** | 508/800 | **1.5 s** |
+| `noConnectionReuse: true` | **7 of 8** | 800/800 | 2.71 ms |
+
+Confirmed against archived runs rather than inferred: `spike/ours-predictive` had 4 pods
+serving of 14 ready, `spike/ours-predictive-per-replica` 3 of 14, `bursty/ours-predictive`
+4 of 16. Prometheus held three `http_requests_total` series while `up{app="sample"}` counted
+13. **Raising `preAllocatedVUs` does not fix it** — an 800-VU run still landed on one pod;
+the connections are allocated lazily and the fast responses mean few are ever live at once.
+`noConnectionReuse` is the only knob that produces fan-out on this host. After the fix a
+harness run showed 13 of 13 pods serving.
+
+**What survives, checked directly rather than assumed.** The autoscaler's input is
+
+    sum(rate(http_requests_total{app="sample"}[1m])) / clamp_min(count(up{app="sample"} == 1), 1)
+
+Both halves were queried against Prometheus mid-run: numerator 1299.99 (the true offered
+total) and denominator 13 (the true ready count). The numerator is a `sum` over all series
+and the denominator counts `up` targets, so neither depends on *which* pods served. **SLA
+violation %, replica-seconds, under/over-provisioning, scale up/down counts and reversal
+counts are arithmetically unaffected and are retained.**
+
+**What is invalid:**
+
+- **Every latency number in this notebook.** p95 sat at ~2.4 ms in all thirty-odd runs
+  because it measured three or four unsaturated pods regardless of arm. No latency claim can
+  be made from Phase 6 data.
+- **`hpa-custom`, entirely, on all four patterns.** It is the only arm consuming *per-pod*
+  metrics. It saw 3 pods of 13 and read `averageValue` 433 against a target of 100. This also
+  resolves §11.12's open hypothesis: the missing-metrics rule fired exactly as suspected, but
+  the missing metrics were an artifact of the load generator, not of the adapter or the rate
+  window. That explains **0 scale-downs on all four workloads**. The arm needs re-measuring.
+- **Any claim that adding replicas serves more traffic.** The SLA metric is a model-based
+  proxy computed from total load and ready count; nothing in Phase 6 physically corroborates
+  it. §11 always said this, but it now has to be said louder.
+
+The fix is `CONNECTION_OPTIONS = { noConnectionReuse: true }` in `test/load/lib/patterns.js`,
+spread into all four pattern scripts and into `warmup.js` — the warmup must share the
+connection model or the measured window opens by unwinding a false equilibrium. It changes
+the load model: per-request connection setup is charged to both ends, which is less like a
+real keep-alive client. That cost is accepted, because the alternative is not measuring the
+fleet at all. `run.sh` now records `load_contract: "per-request-connections-v2"` in every
+`run.json`, so the two generations of run can never be silently read as one series.
+
+### 11.14 Three repeats withdraw one claim and Phase 7.1 replaces it — 2026-08-13
+
+**Repeats first, because they set the resolution of everything else.** Three independent
+`TIME_SCALE=1` runs per arm on `spike` and on `bursty`. `analyze.py` grew a Repeatability
+section that lists every run rather than averaging them; at n=3 a mean hides more than it
+shows. (It also had a latent bug worth recording: it kept only the newest run per
+(pattern, arm) pair, so the repeats would have been silently discarded at load time.)
+
+Direction reversals:
+
+| Workload | `ours-predictive-per-replica` | `ours-predictive` |
+|---|---|---|
+| `spike` | 14, 4, 14 | 3, 5, 7 |
+| `bursty` | 10, 6, 5 | 6, 7, 9 |
+
+**`bursty` is withdrawn** — the ranges overlap completely and per-replica is slightly lower.
+`spike` still separates on two of three runs but a run of 4 sits inside the predictive arm's
+range, so it is an observation, not a result. The rule this establishes and that the
+evaluation chapter must respect: **a difference between two arms smaller than the spread of
+one arm against itself is not a difference.**
+
+**Phase 7.1 makes the claim on a much larger effect.** The two predictive policies re-run
+with `stabilization_window_seconds: 0` — the damper removed, everything else identical:
+
+| Pattern | Arm | SLA | Replica-s | Scale ↑/↓ | Reversals |
+|---|---|---:|---:|---:|---:|
+| `spike` | per-replica-nostab | **50.8%** | 1,810 | 60/60 | **119** |
+| `spike` | predictive-nostab | 4.1% | 12,355 | 28/28 | 43 |
+| `bursty` | per-replica-nostab | **42.8%** | 7,685 | 49/50 | **98** |
+| `bursty` | predictive-nostab | 13.0% | 10,270 | 27/23 | 21 |
+| `ramp` | per-replica-nostab | **39.5%** | 7,360 | 60/60 | **119** |
+| `ramp` | predictive-nostab | 0.0% | 13,395 | 16/7 | 12 |
+
+An 1800 s run at a 15 s interval is 120 reconciles. **60 up and 60 down means the controller
+reverses direction at every single control interval** — not oscillation as a tendency but as
+a fixed point. The analyzer independently flags the autoscaler's own per-replica metric
+diverging from observed load by 86–135%, which is the feedback signature §3.3 predicted.
+Damped by the same 90 s stabilizer, this identical policy scores 0.0% on `ramp` and 0.6% on
+`spike` and passes every check in the evaluation.
+
+**The claim to build the thesis on: a 90-second stabilization window masks a fundamentally
+broken control law well enough that it passes every SLA and cost test in the suite.** It
+answers open question 1. It is preferable to the original claim in three ways — the effect is
+roughly ten times the measured spread rather than inside it, it does not rest on reversal
+counts at n=1, and it explains *why* the broken policy looked fine on `diurnal` in §11.12
+(the stabilizer was doing the work, and a smooth workload asks little of it).
+
+These runs share the broken load contract of §11.13. The claim concerns the controller's own
+dynamics rather than load delivery, and SLA % and replica-seconds are in the unaffected set,
+so it should survive re-measurement — but it has not yet been re-measured and the chapter
+should not say otherwise until it has.

@@ -12,6 +12,8 @@ Measurement window only; warmup and settle excluded. Required replicas are
 | `ours-threshold` | 4.1% | 11,810 | 1,460 | 0 | 2,476.7 | 110.0 s | 8/0 | 0 | 2.5 ms |
 | `ours-predictive` | 0.0% | 13,515 | 270 | 575 | 2,585.1 | 30.0 s | 10/0 | 0 | 2.4 ms |
 | `ours-predictive-per-replica` | 0.0% | 12,900 | 885 | 515 | 2,475.9 | 87.5 s | 11/3 | 5 | 2.5 ms |
+| `ours-predictive-nostab` | 0.0% | 13,395 | 200 | 325 | 2,482.3 | 20.0 s | 16/7 | 12 | 2.5 ms |
+| `ours-predictive-per-replica-nostab` | 39.5% | 7,360 | 6,540 | 630 | 1,496.6 | 10.0 s | 60/60 | 119 | 2.5 ms |
 
 Notes:
 
@@ -20,3 +22,7 @@ Notes:
 - `static`: never reached 11 ready replicas after the step at t=1265s
 - `static`: never reached 12 ready replicas after the step at t=1385s
 - `ours-threshold`: never reached 12 ready replicas after the step at t=1385s
+- `ours-predictive-per-replica-nostab`: never reached 10 ready replicas after the step at t=1145s
+- `ours-predictive-per-replica-nostab`: never reached 11 ready replicas after the step at t=1265s
+- `ours-predictive-per-replica-nostab`: never reached 12 ready replicas after the step at t=1385s
+- `ours-predictive-per-replica-nostab`: per_replica_rps and autoscaler_metric_value differ by 88% (median)

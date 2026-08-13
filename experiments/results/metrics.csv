@@ -4,8 +4,10 @@ bursty,static,20260812T094920Z,True,False,1802,17.40,14480,1440,6160,2091.7,0.0,
 bursty,hpa-cpu,20260812T120606Z,True,False,1801,2.49,13880,1200,5320,2085.5,30.0,7,6,5,7.67,15,1.75,2.43,2.49,970223,971600,0.999,0,
 bursty,hpa-custom,20260812T131429Z,True,False,1802,1.66,18980,340,9560,2079.7,0.0,4,0,0,10.49,12,1.75,2.43,2.49,971999,971600,1.000,0,
 bursty,ours-threshold,20260812T105742Z,True,False,1802,3.31,12365,1410,4015,2088.1,0.0,9,9,5,6.83,11,1.75,2.43,2.49,971999,971600,1.000,0,never reached 12 ready replicas after the step at t=300s; never reached 12 ready replicas after the step at t=800s; never reached 12 ready replicas after the step at t=1300s
-bursty,ours-predictive,20260812T113200Z,True,False,1801,0.83,14545,1080,5865,2080.9,25.0,12,16,6,8.04,16,1.75,2.43,2.49,971999,971600,1.000,0,
-bursty,ours-predictive-per-replica,20260812T124023Z,True,False,1801,2.49,13715,1005,4960,2072.5,27.5,9,12,10,7.58,13,1.75,2.43,2.49,971999,971600,1.000,0,
+bursty,ours-predictive,20260812T214055Z,True,False,1801,1.10,14385,960,5585,2070.4,20.0,16,15,9,7.95,16,1.75,2.43,2.49,971999,971600,1.000,0,
+bursty,ours-predictive-per-replica,20260812T221514Z,True,False,1800,1.94,13465,1215,4940,2077.2,32.5,6,12,5,7.46,13,1.75,2.43,2.49,971999,971600,1.000,0,
+bursty,ours-predictive-nostab,20260812T184916Z,True,False,1800,13.02,10270,1805,2335,2026.6,67.5,27,23,21,5.69,15,1.76,2.44,2.50,971928,971600,1.000,0,
+bursty,ours-predictive-per-replica-nostab,20260812T181455Z,True,False,1801,42.82,7685,4145,2070,1635.4,12.5,49,50,98,4.25,20,1.76,2.44,1010.68,970590,971600,0.999,0,never reached 12 ready replicas after the step at t=800s; never reached 12 ready replicas after the step at t=1300s; per_replica_rps and autoscaler_metric_value differ by 86% (median)
 diurnal,static-peak,20260812T020258Z,True,False,1801,0.00,21720,0,7290,2907.8,0.0,0,0,0,12.00,12,1.75,2.43,2.49,1349999,1349700,1.000,0,
 diurnal,static,20260812T012850Z,True,False,1802,40.33,14480,2490,2540,2895.9,0.0,0,0,0,8.00,8,1.75,2.43,2.49,1349999,1349700,1.000,0,never reached 9 ready replicas after the step at t=485s; never reached 10 ready replicas after the step at t=550s; never reached 11 ready replicas after the step at t=620s; never reached 12 ready replicas after the step at t=710s
 diurnal,hpa-cpu,20260812T033309Z,True,False,1801,0.00,15570,370,1510,2894.1,55.0,6,9,2,8.60,12,1.75,2.43,2.49,1349999,1349700,1.000,0,
@@ -20,10 +22,14 @@ ramp,hpa-custom,20260812T005446Z,True,False,1801,4.70,12025,1245,0,2462.6,127.5,
 ramp,ours-threshold,20260811T150855Z,True,False,1801,4.14,11810,1460,0,2476.7,110.0,8,0,0,6.52,11,1.78,2.48,352.34,1244980,1258800,0.989,0,never reached 12 ready replicas after the step at t=1385s
 ramp,ours-predictive,20260811T154314Z,True,False,1800,0.00,13515,270,575,2585.1,30.0,10,0,0,7.49,13,1.75,2.43,2.49,1244998,1258800,0.989,0,
 ramp,ours-predictive-per-replica,20260811T165140Z,True,False,1802,0.00,12900,885,515,2475.9,87.5,11,3,5,7.13,13,1.78,2.48,387.50,1244989,1258800,0.989,0,
+ramp,ours-predictive-nostab,20260812T195755Z,True,False,1801,0.00,13395,200,325,2482.3,20.0,16,7,12,7.40,13,1.78,2.47,353.50,1244988,1258800,0.989,0,
+ramp,ours-predictive-per-replica-nostab,20260812T192334Z,True,False,1803,39.50,7360,6540,630,1496.6,10.0,60,60,119,4.07,9,1.79,2.49,2134.96,1244149,1258800,0.988,0,never reached 10 ready replicas after the step at t=1145s; never reached 11 ready replicas after the step at t=1265s; never reached 12 ready replicas after the step at t=1385s; per_replica_rps and autoscaler_metric_value differ by 88% (median)
 spike,static-peak,20260812T062409Z,True,False,1801,0.00,23530,0,12100,2464.3,0.0,0,0,0,13.00,13,1.75,2.43,2.49,1139999,1139700,1.000,0,
 spike,static,20260812T055005Z,True,False,1801,32.87,14480,3000,6050,2449.5,nan,0,0,0,8.00,8,1.75,2.43,2.49,1139999,1139700,1.000,0,never reached 13 ready replicas after the step at t=600s
 spike,hpa-cpu,20260812T080650Z,True,False,1801,1.66,13915,480,2965,2409.9,60.0,3,4,1,7.69,14,1.75,2.43,2.49,1139999,1139700,1.000,0,
-spike,hpa-custom,20260812T091514Z,True,False,1803,2.76,17105,425,6100,2399.7,65.0,4,0,0,9.45,13,1.75,2.43,2.49,1139999,1139700,1.000,0,
+spike,hpa-custom,20260812T163156Z,True,False,1801,2.76,17055,475,6100,2414.3,70.0,4,0,0,9.42,13,1.75,2.43,2.49,1139999,1139700,1.000,0,
 spike,ours-threshold,20260812T065826Z,True,False,1801,2.49,11925,1095,1590,2404.5,nan,3,4,1,6.59,12,1.75,2.43,2.49,1139999,1139700,1.000,0,never reached 13 ready replicas after the step at t=600s
-spike,ours-predictive,20260812T073245Z,True,False,1801,0.28,14085,405,3060,2438.6,65.0,5,7,3,7.78,18,1.75,2.43,2.49,1139999,1139700,1.000,0,
-spike,ours-predictive-per-replica,20260812T084106Z,True,False,1803,0.83,13900,390,2860,2407.6,60.0,9,9,14,7.68,14,1.75,2.43,2.49,1139999,1139700,1.000,0,
+spike,ours-predictive,20260812T152329Z,True,False,1801,0.55,14280,270,3120,2440.2,35.0,7,9,7,7.89,18,1.75,2.43,2.49,1139999,1139700,1.000,0,
+spike,ours-predictive-per-replica,20260812T155748Z,True,False,1801,0.55,13900,390,2860,2419.9,60.0,9,9,14,7.68,14,1.75,2.43,2.49,1139999,1139700,1.000,0,
+spike,ours-predictive-nostab,20260812T174036Z,True,False,1801,4.14,12355,465,1390,2365.3,60.0,28,28,43,6.83,18,1.76,2.44,2.50,1139999,1139700,1.000,0,
+spike,ours-predictive-per-replica-nostab,20260812T170616Z,True,False,1801,50.83,1810,9620,0,1356.9,nan,60,60,119,1.00,1,1.77,2.46,1930.46,1138854,1139700,0.999,0,never reached 13 ready replicas after the step at t=600s; per_replica_rps and autoscaler_metric_value differ by 135% (median)
