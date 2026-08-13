@@ -1138,6 +1138,11 @@ the connections are allocated lazily and the fast responses mean few are ever li
 `noConnectionReuse` is the only knob that produces fan-out on this host. After the fix a
 harness run showed 13 of 13 pods serving.
 
+> **§11.15 tests the claim below empirically.** The argument here is from the PromQL alone,
+> and it has a hole — a saturated pinned pod would throttle the numerator. §11.15 checks
+> delivered load against intent for all 45 runs and finds 42 within 1%, so the conclusion
+> holds, but on measurement rather than on reasoning.
+
 **What survives, checked directly rather than assumed.** The autoscaler's input is
 
     sum(rate(http_requests_total{app="sample"}[1m])) / clamp_min(count(up{app="sample"} == 1), 1)
@@ -1221,3 +1226,42 @@ These runs share the broken load contract of §11.13. The claim concerns the con
 dynamics rather than load delivery, and SLA % and replica-seconds are in the unaffected set,
 so it should survive re-measurement — but it has not yet been re-measured and the chapter
 should not say otherwise until it has.
+
+### 11.15 The blast radius of §11.13 is bounded, and it was checked — 2026-08-13
+
+§11.13 argued from the PromQL that SLA %, replica-seconds and reversal counts survive the
+keep-alive defect, because the controller's input sums `rate()` over all series and divides
+by `count(up)` and so never depended on which pods served. That argument has a hole: the A/B
+in §11.13 showed keep-alive delivering only **508 of 800** requested req/s, because the single
+pinned pod saturated. If that happened during real runs, the numerator was not the intended
+workload but whatever the pinned pods could absorb, and those runs measured a throttled
+workload rather than the one the experiment specifies.
+
+**Checked, not assumed.** For every valid non-smoke run in `results/raw`, delivered
+`sum(rate(http_requests_total[1m]))` was compared against the pattern function evaluated on
+the same window, sampled only inside plateaus at least 150 s long and at least 90 s after the
+edge, so the 1-minute rate window sits entirely inside the plateau.
+
+**42 of 45 runs delivered between 0.993 and 1.010 of intent.** The defect pinned traffic to
+3-4 pods, but the sample app answers in ~2.4 ms, so 3-4 pods absorb roughly 1500 req/s — above
+every peak in the workload set. The offered load was never throttled.
+
+The three exceptions are all `ours-predictive-per-replica-nostab`: 0.385 on `spike`, 0.409 on
+`bursty`, 0.413 on `ramp`. These are the result rather than an artifact. Ready replicas over
+those runs averaged 3.7, 4.1 and 3.8 with a minimum of 1 (and one `spike` repeat averaged
+1.1), so the arm oscillated its own fleet down to a single pod, and ~495 req/s is what a
+single pod genuinely serves. The shortfall is the under-provisioning the 39-51% SLA violation
+figures measure. If anything it makes those figures conservative: the SLA model divides
+observed total load by ready count, so a throttled numerator *understates* the violation.
+
+**Consequence: no full re-run is owed.** The re-measurement list is exactly the three items
+§11.13 identified and no more —
+
+1. `hpa-custom` on all four patterns. It is the only arm reading per-pod metrics, so it is
+   the only arm whose *input* was corrupted rather than merely its latency column.
+2. Enough arms to obtain real latency figures.
+3. A physical demonstration that adding replicas serves more traffic, which nothing in Phase 6
+   provides.
+
+Everything else in the Phase 6 tables stands as measured, on evidence rather than on the
+plausibility of the PromQL.
