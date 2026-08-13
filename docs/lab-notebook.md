@@ -237,6 +237,11 @@ holds in the container as well as on the host.
 One replica at the original `400m` limit saturated at **192 req/s** measured through a
 port-forward — consistent with 400m ÷ 2ms = 200 req/s.
 
+> **Superseded, 2026-08-13 (§11.17).** The limit is now `1` core and is **not enforced**
+> on this host: the pod draws 3.65 cores at 2200 req/s with zero throttled CFS periods.
+> Warm single-replica capacity is beyond 2200 req/s, not 192. The CPU-per-request figure
+> above is confirmed in-cluster (2.1-2.3 ms), so §5.1's equality still holds.
+
 ---
 
 ## 6. Findings that only running it could produce — 2026-07-30
@@ -1167,6 +1172,11 @@ counts are arithmetically unaffected and are retained.**
 
 **What is invalid:**
 
+> **Corrected, 2026-08-13 (§11.17).** The latency claim immediately below is too strong.
+> Pod capacity exceeds 2200 req/s against a 100 req/s target, so no arm ever approaches
+> saturation and ~2.4 ms is the *correct* measurement, not an artifact. Latency is
+> non-discriminating here for reasons unrelated to the load contract.
+
 - **Every latency number in this notebook.** p95 sat at ~2.4 ms in all thirty-odd runs
   because it measured three or four unsaturated pods regardless of arm. No latency claim can
   be made from Phase 6 data.
@@ -1346,3 +1356,98 @@ window, which is the expected benign artifact. Max fleet 13, tracked up and back
 
 **Re-measurement still owed:** real latency figures, and a physical demonstration that adding
 replicas serves more traffic. Neither is affected by anything above.
+
+### 11.17 Physical corroboration, and the cluster is running the wrong binary — 2026-08-13
+
+Chasing the last two items owed by §11.13 — real latency, and a demonstration that adding
+replicas serves more traffic. Both are answered. A third thing was found on the way that
+matters more than either.
+
+**The calibration holds in-cluster.** One replica, load held while CPU was read from
+Prometheus:
+
+| Offered | Delivered | CPU (cores) | ms/req |
+|---:|---:|---:|---:|
+| 100 | 100.0 | 0.232 | 2.32 |
+| 200 | 194.1 | 0.431 | 2.22 |
+| 400 | 402.9 | 0.862 | 2.14 |
+| 600 | 600.1 | 1.271 | 2.12 |
+
+2.1-2.3 ms of CPU per request against §5.2's locally measured 2.096 ms, and 232m at 100 req/s
+against a 200m request. **§5.1's fairness argument is confirmed in the cluster**: a replica at
+its target throughput really does sit at ~100% of its CPU request, so `hpa-cpu` at
+`averageUtilization: 100` and `ours-threshold` at 100 req/s aim at the same operating point.
+(§5.2's "one replica at the original 400m limit saturated at 192 req/s" is stale — the limit
+is now 1 core.)
+
+**CPU limits are not enforced on this host.** The pod draws 1.271 cores at 600 req/s and
+3.654 cores at 2200 req/s against a `limits.cpu: 1`, with
+`container_cpu_cfs_throttled_periods_total` at exactly **zero** throughout. `GOMAXPROCS` is
+unset, so the Go runtime sees all 14 node cores. Warm, a single replica serves **2200 req/s at
+3.34 ms p95 with no failures**.
+
+**This is why latency cannot discriminate between arms, and the reason has nothing to do with
+§11.13.** The policy target is 100 req/s per replica, derived from the 200m CPU *request*.
+Actual saturation is beyond 2200 req/s per replica — a factor of more than twenty. No arm in
+the evaluation ever pushes a replica within an order of magnitude of saturation, so every arm
+measures ~2.4 ms and always would have. **§11.13's "every latency number is invalid" is too
+strong and is corrected here: the latency numbers are correct, they are simply
+non-discriminating, and re-running arms to "get real latency" would produce the same flat
+column.** That item is closed, not by measurement, but by understanding why it cannot pay.
+
+What the SLA metric therefore measures is **capacity reservation, not observed harm**: whether
+the fleet is sized so that per-replica load stays within the CPU request, which is the
+guaranteed allocation. That is a defensible and standard planning question — burst headroom
+exists only while the node is uncontended, and this node is dedicated — but the evaluation
+chapter must state it in those terms and must not imply that a 40% SLA violation figure means
+users saw anything.
+
+**Adding replicas does serve more traffic** (the open item from §11.13). At 800 req/s offered:
+one replica delivered 792.9 at 2276 ms p95 with 5.05% failures; two replicas delivered 800.6
+at **2.59 ms** with none. Roughly an 880x improvement in the tail for one added pod.
+
+**A reproducible cold-burst effect, mechanism not yet established.** Three identical 800 req/s
+runs in each condition:
+
+| Condition | run 1 | run 2 | run 3 |
+|---|---|---|---|
+| steady, 13 replicas | 2.72 ms / 0% | 2.80 ms / 0.95% | 2.74 ms / 0% |
+| just after scaling to 1 | **2486 ms / 13.3%** | 2.68 ms / 0% | 2.68 ms / 0% |
+| same fleet, 3 min idle | **2538 ms / 25.7%** | 2.66 ms / 0% | — |
+
+It is not a scale-down transient: it returns after an idle gap on an unchanged fleet. The
+first burst onto a cold replica is dramatically worse than the same burst onto a warm one.
+**This matters to the thesis and is worth a Phase 7 experiment**, because it is a mechanism by
+which prediction could pay that the SLA model does not capture: a replica added *before* the
+load arrives is warm when it is needed, one added reactively is cold. Do not claim this yet —
+it is measured on pinned fleets, not on the arms, and every measured run is preceded by
+`warmup.js`, so Phase 6 results are not affected.
+
+**The cluster is running a binary that predates the source by one commit.**
+
+`sample-app:dev` was built **2026-07-30 11:47:34**. Commit `58a7f35`, which added the
+concurrency limiter and the shed counter, landed **11:55:31 — eight minutes later**. The
+deployed image corresponds to `3d1487f`, and a direct scrape of a running pod confirms it:
+`http_requests_in_flight` is exported, `http_requests_shed_total` is not present at all.
+
+Consequences, none of which invalidate Phase 6 but all of which have to be stated:
+
+- **`shed_rps` was structurally blind in every run.** `sum(rate(http_requests_shed_total...))`
+  returned zero series in all 49 runs — not because nothing was shed, but because the metric
+  does not exist in the running binary. Any reading of "no shedding occurred" from Phase 6
+  data is unsupported.
+- **The 16-request concurrency limiter is not active.** `http_requests_in_flight` peaked at
+  **61 on a single pod** in the `ours-predictive-per-replica-nostab` arms, which is only
+  possible with unbounded concurrency. Under the committed source those requests would have
+  been rejected with 503.
+- The results are internally consistent and comparable *with each other*, because every run
+  used this same binary. They are not reproducible from the committed source.
+
+**Recommendation, and it is the user's call.** Do not rebuild before the evaluation is
+written. Rebuilding would activate 503 shedding above 16 in-flight, which changes the physics
+of every arm — most sharply the collapsed arms that reached 61 — and would make nothing
+comparable with the 49 runs already measured, at a cost of another full matrix. The cheaper
+and more honest path is to pin and document: record that the measured binary is `3d1487f`,
+state the divergence in the environment section, and reconcile the source afterwards. Whatever
+is chosen must be recorded, because "the thesis was measured against an image that is not the
+committed code" is exactly the question an examiner is entitled to ask.
