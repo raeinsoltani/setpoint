@@ -80,6 +80,11 @@ PATTERNS="spike diurnal bursty ramp"
 # changes, so the two generations are never read as one series.
 LOAD_CONTRACT="per-request-connections-v2"
 
+# The sample-app build every Phase 6 number was measured against, pinned in the node's
+# containerd as `sample-app:phase6-measured` (§11.17). Export EXPECTED_APP_IMAGE="" to run
+# against something else deliberately; the digest is recorded in run.json regardless.
+EXPECTED_APP_IMAGE="${EXPECTED_APP_IMAGE-docker.io/library/sample-app@sha256:d089f870ba7acd9071b75f7556cd2d6c8b73125d9faa2b6efddcd9657db5ab1d}"
+
 usage() {
   cat <<EOF
 usage: $0 --arm ARM --pattern PATTERN [options]
@@ -147,7 +152,31 @@ kubectl get deploy "$DEPLOYMENT" -n "$NAMESPACE" >/dev/null 2>&1 \
 kubectl get sts -n "$MON_NS" prometheus-monitoring-kube-prometheus-prometheus >/dev/null 2>&1 \
   || die "kube-prometheus-stack not installed in ns/$MON_NS — run 'make monitoring'"
 
+# Which binary is actually serving. §11.17 found the cluster running an image whose content
+# predates the concurrency limiter in 58a7f35, which is why http_requests_shed_total returned
+# zero series in all 49 Phase 6 runs — the metric does not exist in it. The tag `dev` is
+# mutable and a `make build` would silently replace it mid-programme, so the digest is
+# verified here rather than trusted, and recorded in run.json either way.
+APP_IMAGE_DIGESTS="$(kubectl get pods -n "$NAMESPACE" -l app=sample \
+  --field-selector=status.phase=Running \
+  -o jsonpath='{range .items[*]}{.status.containerStatuses[0].imageID}{"\n"}{end}' \
+  | sed '/^$/d' | sort -u)"
+APP_IMAGE="$(printf '%s' "$APP_IMAGE_DIGESTS" | head -1)"
+[[ -n "$APP_IMAGE" ]] || die "no running $DEPLOYMENT pods to read an image digest from"
+[[ "$(printf '%s\n' "$APP_IMAGE_DIGESTS" | wc -l | tr -d ' ')" == "1" ]] \
+  || die "fleet is running more than one image digest, so the run would not be self-consistent:
+$APP_IMAGE_DIGESTS"
+if [[ -n "${EXPECTED_APP_IMAGE:-}" && "$APP_IMAGE" != "$EXPECTED_APP_IMAGE" ]]; then
+  die "sample app image changed.
+  running:  $APP_IMAGE
+  expected: $EXPECTED_APP_IMAGE
+Phase 6 was measured against the pinned image (tagged sample-app:phase6-measured, §11.17).
+Comparing across a rebuild is not valid — the committed source adds 503 shedding above 16
+in-flight, which changes the behaviour of every arm. Re-pin deliberately or re-measure."
+fi
+
 info "context      $CONTEXT"
+info "app image    ${APP_IMAGE#*@}"
 info "arm          $ARM"
 info "pattern      $PATTERN"
 info "time scale   $TIME_SCALE$([[ $SMOKE == 1 ]] && echo '  (SMOKE — not an evaluation result)')"
@@ -630,6 +659,7 @@ jq -n \
   --arg git_dirty "$(git -C "$REPO" status --porcelain | head -c 1 | wc -c | tr -d ' ')" \
   --arg k6_version "$(k6 version 2>/dev/null | head -1)" \
   --arg load_contract "$LOAD_CONTRACT" \
+  --arg app_image "$APP_IMAGE" \
   --arg kubectl_version "$(kubectl version -o json 2>/dev/null | jq -r '.serverVersion.gitVersion // "unknown"')" \
   --argjson reasons "$(printf '%s\n' "${REASONS[@]+"${REASONS[@]}"}" | jq -R . | jq -s 'map(select(. != ""))')" \
   '{
@@ -647,6 +677,7 @@ jq -n \
                 kubernetes: $kubectl_version },
      tooling: { k6: $k6_version, git_sha: $git_sha, git_dirty: ($git_dirty != "0") },
      load_contract: $load_contract,
+     app_image: $app_image,
      k6_exit_code: $k6_rc
    }' > "$OUTDIR/run.json"
 

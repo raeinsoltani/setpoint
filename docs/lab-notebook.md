@@ -27,6 +27,18 @@ For the reproducibility section. Captured 2026-07-27, re-verified 2026-07-30.
 | k6 | v2.1.0 |
 | Python (simulator) | 3.14.5 (venv in `sim/` is 3.11.15) |
 | git | 2.50.1 |
+| **sample-app image (measured)** | **`sha256:d089f870ba7a…`**, pinned as `sample-app:phase6-measured` |
+
+> **Added 2026-08-13 (§11.17, §11.18).** The sample-app image row is load-bearing for
+> reproducibility: the measured binary is **not** buildable from the committed source — it
+> predates the concurrency limiter in `58a7f35` and exports no `http_requests_shed_total`.
+> The `dev` tag is mutable and docker's store holds a *different* image under it, so the
+> digest is the only reliable identity. `run.sh` verifies it at preflight and records it in
+> every `run.json`. Do not rebuild before the evaluation chapter is written.
+>
+> Also: **CPU limits are not enforced on this host** — a pod draws 3.65 cores against a
+> `limits.cpu: 1` with zero throttled CFS periods, and `GOMAXPROCS` is unset so Go sees all
+> 14 node cores. Any capacity reasoning from the manifest's limit is wrong (§11.17).
 | kube-prometheus-stack | prometheus-operator v0.92.1 |
 | Base images | `golang:1.26-alpine` build, `gcr.io/distroless/static-debian12:nonroot` runtime |
 
@@ -1425,6 +1437,12 @@ it is measured on pinned fleets, not on the arms, and every measured run is prec
 
 **The cluster is running a binary that predates the source by one commit.**
 
+> **Partly corrected, §11.18.** The build-timestamp evidence below is from docker's image
+> store, which holds a *different* image under the same `sample-app:dev` tag than the one
+> containerd runs. The deployed digest is `d089f870ba7a`; the dating and the `3d1487f`
+> identification are withdrawn. The conclusion is unchanged — a live pod scrape shows the
+> running binary has no `http_requests_shed_total` — but it rests on the scrape, not the date.
+
 `sample-app:dev` was built **2026-07-30 11:47:34**. Commit `58a7f35`, which added the
 concurrency limiter and the shed counter, landed **11:55:31 — eight minutes later**. The
 deployed image corresponds to `3d1487f`, and a direct scrape of a running pod confirms it:
@@ -1451,3 +1469,57 @@ and more honest path is to pin and document: record that the measured binary is 
 state the divergence in the environment section, and reconcile the source afterwards. Whatever
 is chosen must be recorded, because "the thesis was measured against an image that is not the
 committed code" is exactly the question an examiner is entitled to ask.
+
+### 11.18 Pinned, and §11.17's provenance evidence was wrong — 2026-08-13
+
+Decision taken: **pin and document, do not rebuild.** Recorded here with the correction it
+forced, because chasing the pin showed part of §11.17's evidence was about the wrong image.
+
+**The correction.** §11.17 dated the deployed image to a `docker images` timestamp of
+2026-07-30 11:47:34, eight minutes before commit `58a7f35`, and identified it as `3d1487f`.
+That timestamp describes docker's `sample-app:dev`, which **is not what the cluster runs.**
+The node's containerd holds a different image under the same tag:
+
+| Store | Tag | Digest |
+|---|---|---|
+| docker | `sample-app:dev` | `sha256:49a01afe9d43…` (built 2026-07-30 11:47:34) |
+| containerd (k8s.io) | `sample-app:dev` | **`sha256:d089f870ba7a…`** ← every run used this |
+
+Two distinct images, both 3.95 MB, same mutable tag, different stores. A pod created today
+resolved to `d089f870`, so the divergence is live and not historical. The provenance of
+`d089f870` could not be recovered — containerd keeps no build timestamp for it.
+
+**What survives the correction, because it was measured rather than inferred:** a direct
+scrape of a running pod exports `http_requests_in_flight` and does **not** contain
+`http_requests_shed_total` anywhere in its output. The running binary therefore predates
+`58a7f35` *in content*, whatever its build history. Every conclusion in §11.17 that rests on
+that — `shed_rps` blind in all 49 runs, the 16-request limiter inactive, `in_flight` reaching
+61 on one pod — stands unchanged. Only the "built eight minutes before the commit" story is
+withdrawn. **It was a plausible narrative built on a timestamp from the wrong store, and the
+lesson generalises: a tag is not an identity, and `docker images` does not describe what
+kubelet started.**
+
+**The pin.** The running image is now tagged in the node's containerd as
+`docker.io/library/sample-app:phase6-measured`, pointing at the same image ID as `:dev`. The
+tag `dev` is mutable and a `make build` would silently replace it mid-programme; the pin will
+not move. (In the course of this a tag `sample-app:3d1487f` was briefly created pointing at
+docker's *other* image — precisely the confusion being guarded against — and was deleted from
+both stores.)
+
+**The guard.** `run.sh` now reads the imageID from the running pods at preflight and:
+
+- dies if the fleet is running more than one digest, since such a run is not self-consistent;
+- dies if the digest differs from `EXPECTED_APP_IMAGE`, which defaults to the pinned
+  `d089f870` — overridable by exporting it, so a deliberate change is one step and an
+  accidental one is impossible;
+- records `app_image` in every `run.json` regardless, alongside `load_contract`.
+
+Verified both ways: a normal run prints the digest and proceeds, and a forced mismatch aborts
+before any load is offered.
+
+**What the evaluation chapter must say.** Phase 6 was measured against a binary that is not
+reproducible from the committed source, identified by digest `d089f870ba7a` and pinned as
+`sample-app:phase6-measured`. All 49 runs used it, so they are comparable with each other. The
+committed source would shed with 503 above 16 in-flight, which the collapsed arms would have
+triggered at their peak of 61, so a rebuild is not a refinement — it is a different
+experiment. Reconciling image and source is post-thesis work.
