@@ -43,6 +43,11 @@ export const options = {
   },
   // No thresholds. A warmup cannot fail the experiment: it is establishing the
   // starting state, and whatever latency it sees is part of that state, not a result.
+  //
+  // The warmup must use the same connection model as the measured run (§11.13), or it
+  // establishes an equilibrium on a fleet that is not actually sharing the load, and
+  // the measured window starts by unwinding that instead of measuring the policy.
+  ...patterns.CONNECTION_OPTIONS,
 };
 
 export default function () {

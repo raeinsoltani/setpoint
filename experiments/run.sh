@@ -73,6 +73,13 @@ PYTHON_BIN="$([ -x "$(dirname "${BASH_SOURCE[0]}")/../sim/.venv/bin/python" ] \
 ARMS="static static-peak ours-threshold ours-predictive ours-predictive-per-replica hpa-cpu hpa-custom ours-predictive-nostab ours-predictive-per-replica-nostab"
 PATTERNS="spike diurnal bursty ramp"
 
+# How load is delivered to the fleet. Recorded in run.json because a change here makes
+# runs incomparable in a way nothing else in the metadata reveals: every run before
+# 2026-08-13 shared TCP connections, which pinned all traffic to 3-4 pods no matter how
+# many replicas existed (§11.13). Bump this string whenever the delivery contract
+# changes, so the two generations are never read as one series.
+LOAD_CONTRACT="per-request-connections-v2"
+
 usage() {
   cat <<EOF
 usage: $0 --arm ARM --pattern PATTERN [options]
@@ -622,6 +629,7 @@ jq -n \
   --arg git_sha "$(git -C "$REPO" rev-parse HEAD)" \
   --arg git_dirty "$(git -C "$REPO" status --porcelain | head -c 1 | wc -c | tr -d ' ')" \
   --arg k6_version "$(k6 version 2>/dev/null | head -1)" \
+  --arg load_contract "$LOAD_CONTRACT" \
   --arg kubectl_version "$(kubectl version -o json 2>/dev/null | jq -r '.serverVersion.gitVersion // "unknown"')" \
   --argjson reasons "$(printf '%s\n' "${REASONS[@]+"${REASONS[@]}"}" | jq -R . | jq -s 'map(select(. != ""))')" \
   '{
@@ -638,6 +646,7 @@ jq -n \
      cluster: { context: $context, namespace: $namespace, deployment: $deployment,
                 kubernetes: $kubectl_version },
      tooling: { k6: $k6_version, git_sha: $git_sha, git_dirty: ($git_dirty != "0") },
+     load_contract: $load_contract,
      k6_exit_code: $k6_rc
    }' > "$OUTDIR/run.json"
 

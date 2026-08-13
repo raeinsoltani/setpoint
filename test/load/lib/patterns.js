@@ -99,6 +99,24 @@ export function scenario(pattern, stepSeconds = 30) {
   };
 }
 
+// A new TCP connection per request, and it is load-bearing — see docs/lab-notebook.md
+// §11.13. With k6's default HTTP keep-alive, every connection pins to one backend pod
+// for its lifetime, and on this host's LoadBalancer *all* of them landed on a single
+// pod. Measured 2026-08-13 at 800 req/s against 8 replicas:
+//
+//   keep-alive (default) : 1 of 8 pods served, 508/800 req/s delivered, 1.5 s latency
+//   noConnectionReuse    : 7 of 8 pods served, 800/800 req/s delivered, 2.7 ms latency
+//
+// Without this the fleet is a fiction: the autoscaler adds replicas, kube-proxy sends
+// them nothing, and the analysis divides total load by a replica count that is not
+// serving it. Raising preAllocatedVUs does not help — the 800-VU test above still hit
+// one pod. This is the only knob that produces fan-out here.
+//
+// It does change the load model: per-request connection setup is charged to both ends,
+// which is less like a real keep-alive client. That cost is accepted because the
+// alternative is not measuring the fleet at all.
+export const CONNECTION_OPTIONS = { noConnectionReuse: true };
+
 // Common thresholds. These are recorded as part of the run rather than used to gate
 // it: a threshold breach under a deliberately overloaded arm is a *result*, not a
 // test failure, so k6 must still exit successfully and write its summary.
