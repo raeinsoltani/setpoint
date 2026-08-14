@@ -18,21 +18,20 @@ xelatex AUTthesis
 
 For the index (`\printindex`), run `makeindex AUTthesis` between passes.
 
-**This has not been compiled.** No TeX distribution is installed on the machine
-where these files were written, so the source has been checked by inspection and
-by script (cross-references, citation keys, environment nesting) but never run
-through XeLaTeX. Expect to fix a small number of layout issues — most likely
-table widths and float placement — on the first real build.
+TeX Live is installed through Homebrew (`brew install texlive`), so `xelatex`
+and `bibtex` are on the path.
 
 ## Fonts
 
-- **B Nazanin** — required, and installed on this machine.
-- **PGaramond** — optional. The template uses it to render digits inside maths in
-  Persian. `commands.tex` leaves `\setdigitfont` commented out, so digits in
-  formulas are Latin. Uncomment it if the font is installed and Persian digits in
-  formulas are wanted.
-- **IranNastaliq** — optional, for the dedication page. `commands.tex` falls back
-  to B Nazanin; swap the `\defpersianfont\nastaliq` line if it is installed.
+- **B Nazanin** — required, and installed.
+- **PGaramond** — optional, and **not installed here**. The template uses it to
+  render digits inside maths in Persian. `commands.tex` leaves `\setdigitfont`
+  commented out, so digits in formulas are Latin. Uncomment it if the font is
+  ever installed.
+- **IranNastaliq** — installed. The template uses it only on the dedication and
+  acknowledgements pages, both of which this thesis omits, so nothing currently
+  typesets in it; the `\nastaliq` definition is kept pointing at it in case one
+  of those pages is ever restored.
 
 ## Files
 
@@ -43,7 +42,7 @@ table widths and float placement — on the first real build.
 | `AUTthesis.cls` | official AUT class, copied unmodified from `admin/template/latex` |
 | `fa_title.tex` | title page metadata **and the Persian abstract** |
 | `taid.tex` | defence form placeholder + originality declaration |
-| `Chant.tex`, `acknowledgement.tex` | dedication and acknowledgements — **personal, rewrite before submitting** |
+| `acknowledgement.tex` | Persian abstract page (the template's dedication/acknowledgements pages are omitted) |
 | `TOC-TOF-LOT.tex` | contents / figures / tables |
 | `list-of-symbols.tex` | symbols and abbreviations |
 | `chapter1.tex` | introduction |
@@ -69,8 +68,8 @@ appendix tables must be updated to match.
 
 ## Known items needing the author's attention
 
-1. **Dedication and acknowledgements** are placeholder text.
-2. **`\department`** is set to `مهندسی کامپیوتر`; confirm whether the faculty
-   expects a گرایش here.
-3. **`taid.tex`** expects the scanned defence form to be inserted.
-4. The **defence date** on the title page is `شهریور ۱۴۰۵` — update if it moves.
+1. **`taid.tex`** expects the scanned defence form to be inserted.
+2. The **defence date** on the title page is `شهریور ۱۴۰۵` — update if it moves.
+
+Dedication and acknowledgements pages are deliberately absent, and `\department`
+is deliberately empty (no گرایش).
