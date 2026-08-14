@@ -1,0 +1,82 @@
+%%% !TEX TS-program = XeLaTeX
+%%%
+%%%  پروژه کارشناسی — دانشگاه صنعتی امیرکبیر (پلی‌تکنیک تهران)
+%%%  «طراحی و پیاده‌سازی یک مقیاس‌گذار خودکار سفارشی مبتنی بر معیارهای
+%%%   Prometheus برای ریزخدمت‌های ابری»
+%%%
+%%%  بر پایه‌ی کلاس AUTthesis (نسخه‌ی آبان ۱۳۹۷).
+%%%
+%%%  روش اجرا:
+%%%      xelatex AUTthesis
+%%%      bibtex  AUTthesis
+%%%      xelatex AUTthesis
+%%%      xelatex AUTthesis
+%%%  (برای ساخت نمایه، دستور xindy یا makeindex نیز لازم است — به README نگاه کنید.)
+%%%
+%%%  پیش‌نیاز قلم‌ها: B Nazanin، و در صورت فعال بودن، PGaramond و IranNastaliq.
+%%%  فایل commands.tex برای نبودِ دو قلم دوم راه گریز دارد.
+
+\documentclass[oneside,bsc,12pt]{AUTthesis}
+
+\input{commands}
+
+\begin{document}
+\baselineskip=.75cm
+\linespread{1.75}
+
+% صفحه‌ی عنوان، چکیده‌ی فارسی و کلیدواژه‌ها
+\input{fa_title}
+
+% تاییدیه‌ی هیئت داوران
+\input{taid}
+
+% نیایش
+\input{Chant}
+
+% سپاس‌گزاری
+\input{acknowledgement}
+
+% شماره‌گذاری صفحات پیش از فصل اول، با حروف ابجد
+\pagenumbering{alph}
+
+%-----------------------------------------------------------------------------
+% فهرست مطالب، فهرست اشکال و فهرست جداول
+\input{TOC-TOF-LOT}
+
+% فهرست نمادها و اختصارها
+\input{list-of-symbols}
+
+\pagenumbering{arabic}
+\pagestyle{style1}
+
+%--------------------------------------------------------------------- فصل‌ها
+\include{chapter1}
+\include{chapter2}
+\include{chapter3}
+\include{chapter4}
+\include{chapter5}
+\include{chapter6}
+
+%--------------------------------------------------------- مراجع و پیوست‌ها
+\chapterfont{\vspace*{-2em}\centering\LARGE}%
+
+\appendix
+\bibliographystyle{plain-fa}
+\bibliography{references}
+\include{appendix1}
+
+%------------------------------------------------------------------ واژه‌نامه‌ها
+\parindent=0pt
+\include{dicfa2en}
+\include{dicen2fa}
+
+%---------------------------------------------------------------------- نمایه
+\pagestyle{style7}
+\printindex
+\pagestyle{style7}
+
+%------------------------------------------------- چکیده و عنوان انگلیسی
+\include{en-abstract}
+\input{en_title}
+
+\end{document}

@@ -1,0 +1,52 @@
+% کلمات کلیدی انگلیسی
+\latinkeywords{Autoscaling, Kubernetes, Prometheus, Predictive Scaling, Closed-Loop Stability, Microservices}
+
+% چکیده انگلیسی — ترجمه‌ی دقیق چکیده‌ی فارسی
+\en-abstract{
+Horizontal autoscaling adjusts the number of replicas of a service in proportion to
+incoming load. Kubernetes' default mechanism, the Horizontal Pod Autoscaler, has two
+well-known limitations: it relies mainly on CPU utilisation, which is an indirect proxy
+for real application load, and it is purely reactive, acting only after load has already
+risen. The conventional remedy for the second limitation is to add forecasting to the
+decision loop.
+
+This project designed and implemented a custom autoscaler in Go that reads its scaling
+signal from Prometheus through a configurable PromQL expression, takes its policy from a
+configuration file, and adjusts the replica count through the Kubernetes API. Three
+policies were implemented: threshold-based, predictive on total load, and predictive on
+per-replica load.
+
+The project's principal finding, however, emerged during evaluation and concerns not the
+autoscaler itself but closed-loop stability. When the forecast is applied to per-replica
+load, the forecaster extrapolates a signal that the controller's own actions move, and
+the loop acquires positive gain. This instability is almost invisible in conventional
+quality-of-service and cost metrics, because the stabilization mechanism masks it. With
+that mechanism removed, the same policy reverses direction 119 times over the 120 control
+intervals of an 1800-second run and reaches 50.8\% SLA violations, whereas with a
+90-second stabilization window it passes every test in the suite.
+
+The evaluation was carried out on a real Kubernetes cluster across four workload patterns
+and nine comparison arms, comprising 49 valid runs in total. The correct predictive
+policy achieves the lowest SLA violation rate and the lowest under-provisioning on all
+four workloads, and its median reaction time on the diurnal workload is roughly four
+times better than that of the default autoscaler driven by the same custom metric; but
+this advantage is bought with roughly 6 to 20 percent more capacity. The defensible claim is
+therefore a trade-off rather than outright dominance. The methodological conclusion is
+that evaluating the stability of a predictive policy requires disabling the stabilization
+mechanism and using a workload with discontinuities; otherwise the evaluation measures
+something that has already been hidden.
+}
+%%%%%%%%%%%%%%%%%%%%% کدهای زیر را تغییر ندهید.
+
+\newpage
+\thispagestyle{empty}
+\begin{latin}
+\section*{\LARGE\centering Abstract}
+
+\een-abstract
+
+\vspace*{.5cm}
+{\large\textbf{Key Words:}}\par
+\vspace*{.5cm}
+\elatinkeywords
+\end{latin}

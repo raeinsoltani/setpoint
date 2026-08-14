@@ -1,0 +1,23 @@
+\cleardoublepage
+\pagestyle{style6}
+\tableofcontents
+\pagestyle{style6}
+\cleardoublepage
+%============
+\BeginNoToc
+\addtocontents{lof}{\lofheading}% سرصفحه‌ی نخستین صفحه‌ی فهرست اشکال
+\pagestyle{style5}
+\listoffigures
+\thispagestyle{style5}
+\cleardoublepage
+%============
+\addtocontents{lot}{\lotheading}% سرصفحه‌ی نخستین صفحه‌ی فهرست جداول
+\thispagestyle{style4}
+\listoftables
+\thispagestyle{style4}
+%============
+\cleardoublepage
+\setcounter{savepage}{\arabic{page}}
+\mainmatter
+\addtocontents{toc}{\tocheading}% سرصفحه‌ی نخستین صفحه‌ی فهرست مطالب
+\EndNoToc

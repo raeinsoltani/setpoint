@@ -1,0 +1,128 @@
+%%%%%%%%%%%%%
+
+{\centering\LARGE\textbf{فهرست نمادها و اختصارها}\par}%
+
+\pagenumbering{alph}
+\setcounter{page}{\thesavepage}
+\vspace*{1cm}
+
+\pagestyle{style3}
+
+\symb{\text{نماد}}{مفهوم}
+\\
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% نمادهای ریاضی به‌کاررفته در فصل‌های سوم تا پنجم
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\symb{\lambda(t)}{
+نرخ کل ورود درخواست‌ها در لحظه‌ی $t$، بر حسب درخواست بر ثانیه
+}
+\symb{m(t)}{
+سنجه‌ی مشاهده‌شده به ازای هر نمونه‌ی آماده، یعنی $\lambda(t)/r(t)$
+}
+\symb{r(t)}{
+تعداد نمونه‌های آماده در لحظه‌ی $t$، برابر با \lr{status.readyReplicas}
+}
+\symb{s(t)}{
+تعداد نمونه‌های درخواست‌شده، برابر با \lr{spec.replicas}
+}
+\symb{T}{
+نرخ هدف به ازای هر نمونه؛ در همه‌ی آزمایش‌ها برابر ۱۰۰ درخواست بر ثانیه
+}
+\symb{\varepsilon}{
+پهنای نسبی ناحیه‌ی مرده؛ در همه‌ی آزمایش‌ها برابر ۰٫۱
+}
+\symb{\Delta t}{
+فاصله‌ی زمانی آشتی‌دهی؛ در همه‌ی آزمایش‌ها برابر ۱۵ ثانیه
+}
+\symb{h}{
+افق پیش‌بینی، بر حسب تعداد گام آشتی‌دهی؛ مقدار پیش‌فرض ۳
+}
+\symb{\alpha}{
+ضریب هموارسازی نمایی سطح؛ مقدار پیش‌فرض ۰٫۵
+}
+\symb{\beta}{
+ضریب هموارسازی روند در روش \lr{Holt}
+}
+\symb{\ell_k}{
+مقدار هموارشده‌ی سطح در گام $k$
+}
+\symb{b_k}{
+مقدار هموارشده‌ی روند (شیب) در گام $k$
+}
+\symb{\hat{\lambda}_{k+h}}{
+پیش‌بینی بار کل برای $h$ گام پس از گام $k$
+}
+\symb{d_k}{
+پیشنهاد خام سیاست در گام $k$، پیش از پایدارسازی
+}
+\symb{W}{
+طول پنجره‌ی پایدارسازی مقیاس به پایین، بر حسب ثانیه؛ مقدار پیش‌فرض ۹۰
+}
+\symb{r_{\min},\,r_{\max}}{
+کف و سقف مجاز تعداد نمونه؛ در همه‌ی آزمایش‌ها ۱ و ۲۰
+}
+\symb{R}{
+هزینه بر حسب نمونه‑ثانیه، یعنی $\int r(t)\,dt$ روی پنجره‌ی اندازه‌گیری
+}
+\symb{U}{
+کم‌تأمین منابع بر حسب نمونه‑ثانیه
+}
+\symb{O}{
+بیش‌تأمین منابع بر حسب نمونه‑ثانیه
+}
+\symb{V}{
+درصد زمان اجرا با نقض توافق سطح خدمت
+}
+\symb{N_{\mathrm{rev}}}{
+تعداد تغییر جهت تصمیم‌های مقیاس‌گذاری
+}
+
+\vspace*{1cm}
+{\centering\large\textbf{اختصارها}\par}
+\vspace*{.5cm}
+
+\symb{\text{HPA}}{
+\lr{Horizontal Pod Autoscaler} — مقیاس‌گذار خودکار افقی پیش‌فرض \lr{Kubernetes}
+}
+\symb{\text{VPA}}{
+\lr{Vertical Pod Autoscaler} — مقیاس‌گذار خودکار عمودی
+}
+\symb{\text{CA}}{
+\lr{Cluster Autoscaler} — مقیاس‌گذار خودکار گره‌های خوشه
+}
+\symb{\text{KEDA}}{
+\lr{Kubernetes Event-driven Autoscaling}
+}
+\symb{\text{SLA}}{
+\lr{Service Level Agreement} — توافق سطح خدمت
+}
+\symb{\text{SLO}}{
+\lr{Service Level Objective} — هدف سطح خدمت
+}
+\symb{\text{QoS}}{
+\lr{Quality of Service} — کیفیت خدمت
+}
+\symb{\text{EWMA}}{
+\lr{Exponentially Weighted Moving Average} — میانگین متحرک با وزن نمایی
+}
+\symb{\text{ARIMA}}{
+\lr{AutoRegressive Integrated Moving Average}
+}
+\symb{\text{LSTM}}{
+\lr{Long Short-Term Memory}
+}
+\symb{\text{CFS}}{
+\lr{Completely Fair Scheduler} — زمان‌بند پردازنده‌ی لینوکس
+}
+\symb{\text{API}}{
+\lr{Application Programming Interface} — واسط برنامه‌نویسی کاربردی
+}
+\symb{\text{CNCF}}{
+\lr{Cloud Native Computing Foundation}
+}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\thispagestyle{style3}
+\newpage
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

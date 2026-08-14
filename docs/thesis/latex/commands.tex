@@ -1,0 +1,310 @@
+% در این فایل، دستورها و تنظیمات مورد نیاز آورده شده است.
+% بر پایه‌ی commands.tex الگوی رسمی AUTthesis، با افزوده‌های زیر:
+%   • بسته‌های listings، tikz، longtable، booktabs و float برای قطعه‌کدها،
+%     نمودارهای برداری و جدول‌های بلند.
+%   • راه گریز برای قلم‌های PGaramond و IranNastaliq که روی هر سامانه‌ای نصب نیستند.
+%-------------------------------------------------------------------------------
+
+% در نسخه‌ی جدید زی‌پرشین، برای تایپ متن‌های ریاضی این سه بسته باید فراخوانی شود.
+\usepackage{amsthm,amssymb,amsmath,amsfonts}
+
+% حاشیه‌های صفحه، مطابق دستورالعمل تحصیلات تکمیلی دانشگاه
+\usepackage[top=30mm, bottom=30mm, left=25mm, right=30mm]{geometry}
+
+\usepackage{graphicx}
+\usepackage{color}
+\usepackage{xcolor}
+\usepackage{setspace}
+\usepackage{titletoc}
+\usepackage{tocloft}
+\usepackage{enumitem}
+
+% جدول‌ها
+\usepackage{array}
+\usepackage{longtable}
+\usepackage{multirow}
+\usepackage{booktabs}
+
+% شکل‌ها
+\usepackage{float}
+
+% قطعه‌کدها
+\usepackage{listings}
+
+% نمودارهای برداری
+\usepackage{tikz}
+\usetikzlibrary{positioning,arrows.meta,shapes.geometric,fit,calc,backgrounds}
+
+% لینک‌های رنگی. برای نسخه‌ی نهایی چاپی، خط زیر را غیرفعال و خط پس از آن را فعال کنید.
+\usepackage[pagebackref=false,colorlinks,linkcolor=blue,citecolor=red]{hyperref}
+%\usepackage[pagebackref=false]{hyperref}
+
+\usepackage[nameinlink]{cleveref}
+\AtBeginDocument{%
+    \crefname{equation}{برابری}{equations}%
+    \crefname{chapter}{فصل}{chapters}%
+    \crefname{section}{بخش}{sections}%
+    \crefname{appendix}{پیوست}{appendices}%
+    \crefname{enumi}{مورد}{items}%
+    \crefname{footnote}{زیرنویس}{footnotes}%
+    \crefname{figure}{شکل}{figures}%
+    \crefname{table}{جدول}{tables}%
+    \crefname{theorem}{قضیه}{theorems}%
+    \crefname{lemma}{لم}{lemmas}%
+    \crefname{corollary}{نتیجه}{corollaries}%
+    \crefname{proposition}{گزاره}{propositions}%
+    \crefname{definition}{تعریف}{definitions}%
+    \crefname{result}{نتیجه}{results}%
+    \crefname{example}{مثال}{examples}%
+    \crefname{remark}{نکته}{remarks}%
+    \crefname{note}{یادداشت}{notes}%
+}
+
+\usepackage{fancyhdr}
+\usepackage[nottoc]{tocbibind}
+\usepackage{makeidx,multicol}
+\setlength{\columnsep}{1.5cm}
+
+\usepackage{verbatim}
+\makeindex
+\usepackage{sectsty}
+
+% فراخوانی زی‌پرشین و تعریف قلم‌ها
+\usepackage{xepersian}
+\SepMark{-}
+\settextfont[Scale=1.2]{B Nazanin}
+\setlatintextfont{Times New Roman}
+\renewcommand{\labelitemi}{$\bullet$}
+
+%-------------------------------------------------------------------------------
+% ارقام فرمول‌ها
+%
+% الگوی رسمی این خط را فعال دارد تا ارقامِ داخل فرمول‌ها فارسی شود، و برای این کار
+% قلم PGaramond لازم است. اگر آن قلم روی سامانه‌ی شما نصب است، خط زیر را فعال کنید.
+% در حالت غیرفعال، ارقامِ فرمول‌ها لاتین می‌مانند — که برای متنی با این حجم از
+% عبارت‌های عددی و نام‌های لاتین، خواناتر هم هست.
+%\setdigitfont[Scale=1.1]{PGaramond}
+%-------------------------------------------------------------------------------
+
+% قلم نستعلیق برای صفحه‌ی نیایش. اگر IranNastaliq نصب است، خط دوم را جایگزین کنید.
+\defpersianfont\nastaliq[Scale=1.4]{B Nazanin}
+%\defpersianfont\nastaliq[Scale=2]{IranNastaliq}
+
+\defpersianfont\chapternumber[Scale=3]{B Nazanin}
+
+\renewcommand\proofname{\textbf{برهان}}
+\renewcommand{\bibname}{منابع و مراجع}
+
+%-------------------------------------------------------------------------------
+% تنظیم قطعه‌کدها
+%
+% هر قطعه‌کد باید داخل محیط latin قرار گیرد تا جهت آن چپ‌به‌راست بماند. برای
+% کوتاه‌شدن کار، محیط‌های آماده‌ی زیر تعریف شده‌اند.
+%-------------------------------------------------------------------------------
+\definecolor{codebg}{rgb}{0.97,0.97,0.97}
+\definecolor{codecomment}{rgb}{0.35,0.45,0.35}
+\definecolor{codekeyword}{rgb}{0.20,0.20,0.60}
+\definecolor{codestring}{rgb}{0.55,0.25,0.25}
+
+\lstset{
+  basicstyle=\ttfamily\footnotesize,
+  backgroundcolor=\color{codebg},
+  commentstyle=\color{codecomment}\itshape,
+  keywordstyle=\color{codekeyword}\bfseries,
+  stringstyle=\color{codestring},
+  frame=single,
+  rulecolor=\color{black!30},
+  breaklines=true,
+  breakatwhitespace=true,
+  columns=fullflexible,
+  keepspaces=true,
+  showstringspaces=false,
+  tabsize=2,
+  captionpos=b,
+  xleftmargin=1em,
+  xrightmargin=1em,
+  aboveskip=1em,
+  belowskip=1em,
+}
+
+% زبان‌های به‌کاررفته در این نوشتار
+\lstdefinelanguage{promql}{
+  keywords={sum,rate,count,increase,avg,max,min,by,without,offset},
+  sensitive=true,
+  comment=[l]{\#},
+  morestring=[b]",
+}
+\lstdefinelanguage{yamlx}{
+  keywords={true,false,null},
+  sensitive=false,
+  comment=[l]{\#},
+  morestring=[b]",
+}
+
+% محیط آماده: قطعه‌کد چپ‌به‌راست
+\lstnewenvironment{latincode}[1][]
+  {\setLTR\lstset{#1}}
+  {}
+
+%-------------------------------------------------------------------------------
+% ماکروهای کمکی این نوشتار
+%-------------------------------------------------------------------------------
+% یک شناسه‌ی لاتین در میان متن فارسی (نام بسته، نام تابع، نام بازو، …)
+\DeclareRobustCommand{\code}[1]{\lr{\texttt{\small #1}}}
+% یک عدد یا واحد لاتین در میان متن فارسی
+\DeclareRobustCommand{\num}[1]{\lr{#1}}
+% نام یک بازوی مقایسه
+\DeclareRobustCommand{\arm}[1]{\lr{\texttt{\small #1}}}
+% ارجاع به دفترچه‌ی آزمایشگاه (فقط در نسخه‌های پیش‌نویس؛ در متن نهایی استفاده نشده)
+\DeclareRobustCommand{\notebookref}[1]{\textsuperscript{[د.آ. #1]}}
+
+%-------------------------------------------------------------------------------
+% سرصفحه‌های فهرست‌ها
+%-------------------------------------------------------------------------------
+\setlength{\cftbeforetoctitleskip}{-1.2em}
+\setlength{\cftbeforelottitleskip}{-1.2em}
+\setlength{\cftbeforeloftitleskip}{-1.2em}
+\setlength{\cftaftertoctitleskip}{-1em}
+\setlength{\cftafterlottitleskip}{-1em}
+\setlength{\cftafterloftitleskip}{-1em}
+
+\newcommand\tocheading{\par عنوان\hfill صفحه \par}
+\newcommand\lofheading{\hspace*{.5cm}\figurename\hfill صفحه \par}
+\newcommand\lotheading{\hspace*{.5cm}\tablename\hfill صفحه \par}
+
+\renewcommand{\cftchapleader}{\cftdotfill{\cftdotsep}}
+\renewcommand{\cfttoctitlefont}{\hspace*{\fill}\LARGE\bfseries}
+\renewcommand{\cftaftertoctitle}{\hspace*{\fill}}
+\renewcommand{\cftlottitlefont}{\hspace*{\fill}\LARGE\bfseries}
+\renewcommand{\cftafterlottitle}{\hspace*{\fill}}
+\renewcommand{\cftloftitlefont}{\hspace*{\fill}\LARGE\bfseries}
+\renewcommand{\cftafterloftitle}{\hspace*{\fill}}
+
+%-------------------------------------------------------------------------------
+% قضیه‌ها، تعریف‌ها و نمونه‌ها
+%-------------------------------------------------------------------------------
+\theoremstyle{definition}
+\newtheorem{definition}{تعریف}[section]
+\newtheorem{remark}[definition]{نکته}
+\newtheorem{note}[definition]{یادداشت}
+\newtheorem{example}[definition]{نمونه}
+\newtheorem{question}[definition]{سوال}
+\newtheorem{remember}[definition]{یاداوری}
+\theoremstyle{theorem}
+\newtheorem{theorem}[definition]{قضیه}
+\newtheorem{lemma}[definition]{لم}
+\newtheorem{proposition}[definition]{گزاره}
+\newtheorem{corollary}[definition]{نتیجه}
+
+%-------------------------------------------------------------------------------
+% صفحه‌های آغاز فصل
+%-------------------------------------------------------------------------------
+\makeatletter
+\newcommand\mycustomraggedright{%
+ \if@RTL\raggedleft%
+ \else\raggedright%
+ \fi}
+\def\@makechapterhead#1{%
+\thispagestyle{style1}
+\vspace*{20\p@}%
+{\parindent \z@ \mycustomraggedright
+\ifnum \c@secnumdepth >\m@ne
+\if@mainmatter
+
+\bfseries{\Huge \@chapapp}\small\space {\chapternumber\thechapter}
+\par\nobreak
+\vskip 0\p@
+\fi
+\fi
+\interlinepenalty\@M
+\Huge \bfseries #1\par\nobreak
+\vskip 120\p@
+
+}
+\newpage}
+\bidi@patchcmd{\@makechapterhead}{\thechapter}{\tartibi{chapter}}{}{}
+\bidi@patchcmd{\chaptermark}{\thechapter}{\tartibi{chapter}}{}{}
+\makeatother
+
+\pagestyle{fancy}
+\renewcommand{\chaptermark}[1]{\markboth{\chaptername~\tartibi{chapter}: #1}{}}
+
+\fancypagestyle{style1}{
+\fancyhf{}
+\fancyfoot[c]{\thepage}
+\fancyhead[R]{\leftmark}%
+\renewcommand{\headrulewidth}{1.2pt}
+}
+
+\fancypagestyle{style2}{
+\fancyhf{}
+\fancyhead[R]{چکیده}
+\fancyfoot[C]{\thepage{}}
+\renewcommand{\headrulewidth}{1.2pt}
+}
+
+\fancypagestyle{style3}{%
+  \fancyhf{}%
+  \fancyhead[R]{فهرست نمادها}
+  \fancyfoot[C]{\thepage}%
+  \renewcommand{\headrulewidth}{1.2pt}%
+}
+
+\fancypagestyle{style4}{%
+  \fancyhf{}%
+  \fancyhead[R]{فهرست جداول}
+  \fancyfoot[C]{\thepage}%
+  \renewcommand{\headrulewidth}{1.2pt}%
+}
+
+\fancypagestyle{style5}{%
+  \fancyhf{}%
+  \fancyhead[R]{فهرست اشکال}
+  \fancyfoot[C]{\thepage}%
+  \renewcommand{\headrulewidth}{1.2pt}%
+}
+
+\fancypagestyle{style6}{%
+  \fancyhf{}%
+  \fancyhead[R]{فهرست مطالب}
+  \fancyfoot[C]{\thepage}%
+  \renewcommand{\headrulewidth}{1.2pt}%
+}
+
+\fancypagestyle{style7}{%
+  \fancyhf{}%
+  \fancyhead[R]{نمایه}
+  \fancyfoot[C]{\thepage}%
+  \renewcommand{\headrulewidth}{1.2pt}%
+}
+
+\fancypagestyle{style8}{%
+  \fancyhf{}%
+  \fancyhead[R]{منابع و مراجع}
+  \fancyfoot[C]{\thepage}%
+  \renewcommand{\headrulewidth}{1.2pt}%
+}
+\fancypagestyle{style9}{%
+  \fancyhf{}%
+  \fancyhead[R]{واژه‌نامه‌ی فارسی به انگلیسی}
+  \fancyfoot[C]{\thepage}%
+  \renewcommand{\headrulewidth}{1.2pt}%
+}
+
+% حذف نام فهرست تصاویر و فهرست جداول از فهرست مطالب
+\newcommand*{\BeginNoToc}{%
+  \addtocontents{toc}{%
+    \edef\protect\SavedTocDepth{\protect\the\protect\value{tocdepth}}%
+  }%
+  \addtocontents{toc}{%
+    \protect\setcounter{tocdepth}{-10}%
+  }%
+}
+\newcommand*{\EndNoToc}{%
+  \addtocontents{toc}{%
+    \protect\setcounter{tocdepth}{\protect\SavedTocDepth}%
+  }%
+}
+\newcounter{savepage}
+\renewcommand{\listfigurename}{فهرست اشکال}
+\renewcommand{\listtablename}{فهرست جداول}

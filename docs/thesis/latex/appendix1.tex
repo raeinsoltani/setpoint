@@ -1,0 +1,351 @@
+\chapter*{پیوست‌ها}
+\markboth{پیوست‌ها}{}
+\addcontentsline{toc}{chapter}{پیوست‌ها}
+
+این بخش سه پیوست دارد. پیوست الف پیکربندی کاملی را می‌آورد که همه‌ی اندازه‌گیری‌ها با آن
+انجام شده‌اند. پیوست ب راهنمای بازتولید آزمایش‌هاست. پیوست ج جدول‌های کامل نتایج را به تفکیک
+هر الگوی بار در بر می‌گیرد.
+
+%=============================================================================
+\section*{پیوست الف — پیکربندی}
+\addcontentsline{toc}{section}{پیوست الف — پیکربندی}
+%=============================================================================
+
+\subsection*{الف-۱: پیکربندی مقیاس‌گذار}
+
+این فایل در خوشه به شکل \lr{ConfigMap} نصب می‌شود. طرح آن عمداً با فایل پیکربندی شبیه‌ساز
+یکی است تا مقایسه‌ی فصل~\ref{ch:results} با تفاوت تنظیمات مخدوش نشود.
+
+\begin{latin}
+\begin{lstlisting}[language=yamlx]
+interval_seconds: 15
+
+collector:
+  type: prometheus
+  url: http://prometheus-operated.monitoring.svc:9090
+  timeout_seconds: 5
+  # Requests per second per *ready* replica.
+  query: >
+    sum(rate(http_requests_total{app="sample"}[1m]))
+      / clamp_min(count(up{app="sample"} == 1), 1)
+
+policy:
+  name: predictive       # threshold | predictive | predictive-per-replica
+  target: 100.0          # requests/second/replica
+  tolerance: 0.10        # HPA's 10% dead-band
+  min_replicas: 1
+  max_replicas: 20
+  forecaster:
+    type: ewma           # ewma | holt
+    horizon: 3           # steps ahead; 3 x 15s = 45s of lead time
+    alpha: 0.5
+  stabilization_window_seconds: 90
+  cooldown_seconds: 0    # disabled in every measured run
+  max_step: 0            # disabled in every measured run
+
+scaler:
+  type: kubernetes
+  deployment: sample
+  namespace: default
+
+exporter:
+  enabled: true
+  port: 8000
+\end{lstlisting}
+\end{latin}
+
+در بازوهای حذفی، تنها یک مقدار تغییر می‌کند: \lr{stabilization\_window\_seconds: 0}.
+
+\subsection*{الف-۲: بازوی \lr{hpa-cpu}}
+
+نکته‌ی کلیدی، مقدار \lr{averageUtilization: 100} است و نه مقدار متعارف ۷۰. دلیل آن در
+بخش~\ref{sec:method-calibration} توضیح داده شد: تنها با این مقدار، این بازو و بازوی
+\arm{ours-threshold} به یک نقطه‌کار نشانه می‌روند. بلوک \lr{behavior} نیز عمداً آینه‌ی
+سازوکار پایدارسازی خود ماست تا مقایسه، \emph{سیگنال} و \emph{سیاست} را جدا کند و نه
+تفاوت‌های اتفاقی در میراسازی را.
+
+\begin{latin}
+\begin{lstlisting}[language=yamlx]
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: sample-hpa-cpu
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: sample
+  minReplicas: 1
+  maxReplicas: 20
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 100
+  behavior:
+    scaleUp:
+      stabilizationWindowSeconds: 0
+      policies:
+        - {type: Percent, value: 100, periodSeconds: 15}
+    scaleDown:
+      stabilizationWindowSeconds: 90
+      policies:
+        - {type: Percent, value: 100, periodSeconds: 15}
+\end{lstlisting}
+\end{latin}
+
+\subsection*{الف-۳: بازوی \lr{hpa-custom} و قاعده‌ی \lr{Prometheus Adapter}}
+
+این بازو همان سنجه و همان نقطه‌ی هدف سیاست ما را دارد و تنها متغیر باقی‌مانده، سیاست است.
+
+\begin{latin}
+\begin{lstlisting}[language=yamlx]
+# HorizontalPodAutoscaler
+  metrics:
+    - type: Pods
+      pods:
+        metric:
+          name: http_requests_per_second
+        target:
+          type: AverageValue
+          averageValue: "100"
+
+# prometheus-adapter rule
+rules:
+- seriesQuery: 'http_requests_total{namespace!="",pod!=""}'
+  resources:
+    overrides:
+      namespace: {resource: "namespace"}
+      pod: {resource: "pod"}
+  name:
+    matches: "^http_requests_total$"
+    as: "http_requests_per_second"
+  metricsQuery: 'sum(rate(<<.Series>>{<<.LabelMatchers>>}[1m])) by (<<.GroupBy>>)'
+\end{lstlisting}
+\end{latin}
+
+پنجره‌ی \lr{[1m]} در \lr{metricsQuery} عمداً با پنجره‌ی \lr{PromQL} خود مقیاس‌گذار یکی است.
+
+\subsection*{الف-۴: منابع برنامه‌ی نمونه}
+
+سه مقدار در این مانیفست بار معنایی دارند و در فصل‌های پیشین به هر سه ارجاع داده شده است.
+
+\begin{latin}
+\begin{lstlisting}[language=yamlx]
+env:
+  - {name: WORK_CPU_MS,         value: "2"}    # calibration: 100 rps x 2ms = 200m
+  - {name: WORK_MAX_CONCURRENT, value: "16"}   # not active in the measured image
+resources:
+  requests: {cpu: 200m,  memory: 32Mi}         # the HPA utilisation denominator
+  limits:   {cpu: 1000m, memory: 64Mi}         # raised from 400m; see 4-3-1
+
+readinessProbe:                                # decides when a replica "counts"
+  httpGet: {path: /healthz, port: http}
+  initialDelaySeconds: 1
+  periodSeconds: 2
+  timeoutSeconds: 3
+  failureThreshold: 3
+
+livenessProbe:                                 # must detect a *deadlocked* process
+  httpGet: {path: /healthz, port: http}
+  initialDelaySeconds: 10
+  periodSeconds: 15
+  timeoutSeconds: 5
+  failureThreshold: 6
+\end{lstlisting}
+\end{latin}
+
+سرویس هدف از نوع \lr{LoadBalancer} تعریف شده است و نه \lr{ClusterIP}، به دلیلی که در
+بخش~\ref{sec:design-sampleapp} آمد.
+
+%=============================================================================
+\section*{پیوست ب — راهنمای بازتولید آزمایش‌ها}
+\addcontentsline{toc}{section}{پیوست ب — راهنمای بازتولید}
+%=============================================================================
+
+\subsection*{ب-۱: پیش‌نیازها}
+
+\lr{Go 1.26}، \lr{Docker}، \lr{kubectl}، \lr{Helm}، \lr{k6}، و \lr{Python 3.11} یا بالاتر
+برای برنامه‌ی تحلیل. یک خوشه‌ی \lr{Kubernetes} محلی لازم است؛ پیکربندی سه‌گره‌ی \lr{kind} در
+مخزن موجود است.
+
+\subsection*{ب-۲: برپاسازی}
+
+\begin{latin}
+\begin{lstlisting}
+make stack-up      # monitoring + dashboards + sample app + ServiceMonitors + autoscaler
+make load          # drive one workload by hand
+make experiment    # one measured run of one arm
+make sweep         # every arm on one pattern (~3 hours)
+make analyze       # derive every metric from the stored captures
+\end{lstlisting}
+\end{latin}
+
+\subsection*{ب-۳: نکاتی که بدون دانستنشان بازتولید شکست می‌خورد}
+
+\textbf{مقیاس زمانی باید یک باشد.} چارچوب، اجرای با مقیاس زمانی متفاوت را بدون پرچم صریح
+«دودی» رد می‌کند. دلیل آن در بخش~\ref{sec:method-timescale} آمده است. یک بازو حدود ۳۴ دقیقه و
+یک جاروب کامل حدود سه ساعت طول می‌کشد.
+
+\textbf{میزبان نباید بخوابد.} دستور متعارف جلوگیری از خواب تنها خوابِ بی‌کاری را متوقف
+می‌کند. تنها راه قابل اتکا در این آزمایش‌ها، باز نگه داشتن درِ دستگاه برای تمام مدت بود
+(بخش~\ref{sec:method-unattended}). خواب میزبان برای بازوهای پیش‌بینانه \emph{بازیابی‌ناپذیر}
+است: یک شکاف در ورودی، تاریخچه‌ی پیش‌بینی‌کننده را خراب می‌کند و آنچه پس از بیداری دیده
+می‌شود، سیاست در حال بازیابی از یک قطعی ورودی است و نه سیاست تحت آزمون.
+
+\textbf{اجرای بدون سرپرست نباید فرزند نشستی باشد که آن را تماشا می‌کند.}
+
+\textbf{کشیدن تصاویر از برخی مخازن ممکن است شکست بخورد.} روی میزبان این پروژه، کشیدن تصویر از
+\lr{quay.io} و \lr{ghcr.io} توسط \lr{kubelet} با خطای ۵۰۰ شکست می‌خورد در حالی که
+\lr{registry.k8s.io} بی‌مشکل کار می‌کند. راه‌حل، کشیدن دستی تصویر روی میزبان پیش از نصب چارت
+است. این مشکل مربوط به شبکه‌ی محلی است و کسی که پشت یک اتصال معمولی باشد آن را نخواهد دید؛ اما
+کسی که پشت همان واسط باشد بلافاصله به آن برمی‌خورد.
+
+\textbf{تصویر برنامه‌ی نمونه با اثرانگشت تثبیت شده است.} چارچوب پیش از هر اجرا آن را مقابله
+می‌کند و در صورت اختلاف، پیش از عرضه‌ی هر باری متوقف می‌شود. دلیل این تصمیم در
+بخش~\ref{sec:results-image} آمده است.
+
+\subsection*{ب-۴: آنچه هر اجرا به‌جا می‌گذارد}
+
+هر اجرا یک پوشه با فراداده‌ی اجرا، ۱۷ سری زمانی خام، خلاصه‌ی مولد بار و گزارش کامل آن تولید
+می‌کند. فراداده شامل نام بازو، الگو، پنجره‌ی زمانی، وضعیت اعتبار و دلایل نامعتبری، اثرانگشت
+تصویر، و شیوه‌ی تحویل بار است. \textbf{هیچ سنجه‌ای در حین اجرا محاسبه نمی‌شود.} همه‌ی
+سنجه‌ها بعداً از روی همین سری‌های خام مشتق می‌شوند، و به همین دلیل هر تعریف نادرست را می‌توان
+اصلاح و همه‌ی اجراهای گذشته را بدون بازگشت به خوشه دوباره امتیازدهی کرد.
+
+%=============================================================================
+\section*{پیوست ج — جدول‌های کامل نتایج}
+\addcontentsline{toc}{section}{پیوست ج — جدول‌های کامل نتایج}
+%=============================================================================
+
+جدول‌های~\ref{tab:app-spike} تا~\ref{tab:app-ramp} تنها پنجره‌ی اندازه‌گیری را در بر
+می‌گیرند؛ مرحله‌های گرم‌کردن و نشست
+کنار گذاشته شده‌اند. «نیاز» برابر $\lceil \lambda(t)/100 \rceil$ از تعریف الگوست و نه از بار
+تحویل‌شده. علامت «---» در ستون زمان واکنش یعنی ناوگان تا پایان پنجره هرگز به عدد لازم نرسید؛
+این یک عدد گمشده نیست، بلکه خود نتیجه است.
+
+\begin{table}[H]
+\centering
+\scriptsize
+\caption{نتایج کامل — \arm{spike}}
+\label{tab:app-spike}
+\begin{tabular}{|l|r|r|r|r|r|r|r|r|}
+\hline
+\textbf{بازو} & \textbf{SLA} & \textbf{نمونه‑ث} & \textbf{کم‌تأمین} & \textbf{بیش‌تأمین} & \textbf{هسته‑ث} & \textbf{واکنش} & \textbf{↑/↓} & \textbf{جهت} \\
+\hline
+\arm{static-peak} & \lr{0.0\%} & \lr{23,530} & \lr{0} & \lr{12,100} & \lr{2,464.3} & \lr{---} & \lr{0/0} & \lr{0} \\
+\arm{static} & \lr{32.9\%} & \lr{14,480} & \lr{3,000} & \lr{6,050} & \lr{2,449.5} & \lr{---} & \lr{0/0} & \lr{0} \\
+\arm{hpa-cpu} & \lr{1.7\%} & \lr{13,915} & \lr{480} & \lr{2,965} & \lr{2,409.9} & \lr{60.0} & \lr{3/4} & \lr{1} \\
+\arm{hpa-custom} & \lr{2.2\%} & \lr{12,255} & \lr{475} & \lr{1,300} & \lr{2,506.2} & \lr{70.0} & \lr{4/5} & \lr{1} \\
+\arm{ours-threshold} & \lr{2.5\%} & \lr{11,925} & \lr{1,095} & \lr{1,590} & \lr{2,404.5} & \lr{---} & \lr{3/4} & \lr{1} \\
+\arm{ours-predictive} & \lr{0.6\%} & \lr{14,280} & \lr{270} & \lr{3,120} & \lr{2,440.2} & \lr{35.0} & \lr{7/9} & \lr{7} \\
+\arm{ours-pred.-per-replica} & \lr{0.6\%} & \lr{13,900} & \lr{390} & \lr{2,860} & \lr{2,419.9} & \lr{60.0} & \lr{9/9} & \lr{14} \\
+\arm{ours-pred.-nostab} & \lr{4.1\%} & \lr{12,355} & \lr{465} & \lr{1,390} & \lr{2,365.3} & \lr{60.0} & \lr{28/28} & \lr{43} \\
+\arm{ours-pred.-per-rep.-nostab} & \lr{50.8\%} & \lr{1,810} & \lr{9,620} & \lr{0} & \lr{1,356.9} & \lr{---} & \lr{60/60} & \lr{119} \\
+\hline
+\end{tabular}
+\end{table}
+
+\noindent\textbf{یادداشت‌های \arm{spike}:} بازوهای \arm{static}، \arm{ours-threshold} و
+\arm{ours-pred.-per-replica-nostab} پس از پله‌ی $t=600$ هرگز به ۱۳ نمونه‌ی آماده نرسیدند. در
+بازوی آخر، سنجه‌ی داخلی مقیاس‌گذار ۱۳۵ درصد (میانه) از بار مشاهده‌شده‌ی هر نمونه واگرا شد.
+
+\begin{table}[H]
+\centering
+\scriptsize
+\caption{نتایج کامل — \arm{diurnal}}
+\label{tab:app-diurnal}
+\begin{tabular}{|l|r|r|r|r|r|r|r|r|}
+\hline
+\textbf{بازو} & \textbf{SLA} & \textbf{نمونه‑ث} & \textbf{کم‌تأمین} & \textbf{بیش‌تأمین} & \textbf{هسته‑ث} & \textbf{واکنش} & \textbf{↑/↓} & \textbf{جهت} \\
+\hline
+\arm{static-peak} & \lr{0.0\%} & \lr{21,720} & \lr{0} & \lr{7,290} & \lr{2,907.8} & \lr{---} & \lr{0/0} & \lr{0} \\
+\arm{static} & \lr{40.3\%} & \lr{14,480} & \lr{2,490} & \lr{2,540} & \lr{2,895.9} & \lr{---} & \lr{0/0} & \lr{0} \\
+\arm{hpa-cpu} & \lr{0.0\%} & \lr{15,570} & \lr{370} & \lr{1,510} & \lr{2,894.1} & \lr{55.0} & \lr{6/9} & \lr{2} \\
+\arm{hpa-custom} & \lr{4.7\%} & \lr{14,365} & \lr{1,070} & \lr{1,005} & \lr{2,998.5} & \lr{112.5} & \lr{8/8} & \lr{1} \\
+\arm{ours-threshold} & \lr{3.6\%} & \lr{14,545} & \lr{1,025} & \lr{1,140} & \lr{2,854.7} & \lr{107.5} & \lr{8/8} & \lr{1} \\
+\arm{ours-predictive} & \lr{0.0\%} & \lr{15,180} & \lr{245} & \lr{995} & \lr{2,880.6} & \lr{27.5} & \lr{9/10} & \lr{2} \\
+\arm{ours-pred.-per-replica} & \lr{0.0\%} & \lr{14,915} & \lr{600} & \lr{1,085} & \lr{2,874.9} & \lr{72.5} & \lr{7/9} & \lr{2} \\
+\hline
+\end{tabular}
+\end{table}
+
+\noindent\textbf{یادداشت‌های \arm{diurnal}:} بازوی \arm{static} پس از چهار پله‌ی متوالی هرگز
+به ۹، ۱۰، ۱۱ و ۱۲ نمونه‌ی لازم نرسید. بازوهای حذفی روی این الگو اجرا نشدند.
+
+\begin{table}[H]
+\centering
+\scriptsize
+\caption{نتایج کامل — \arm{bursty}}
+\label{tab:app-bursty}
+\begin{tabular}{|l|r|r|r|r|r|r|r|r|}
+\hline
+\textbf{بازو} & \textbf{SLA} & \textbf{نمونه‑ث} & \textbf{کم‌تأمین} & \textbf{بیش‌تأمین} & \textbf{هسته‑ث} & \textbf{واکنش} & \textbf{↑/↓} & \textbf{جهت} \\
+\hline
+\arm{static-peak} & \lr{0.0\%} & \lr{21,720} & \lr{0} & \lr{11,960} & \lr{2,094.8} & \lr{---} & \lr{0/0} & \lr{0} \\
+\arm{static} & \lr{17.4\%} & \lr{14,480} & \lr{1,440} & \lr{6,160} & \lr{2,091.7} & \lr{---} & \lr{0/0} & \lr{0} \\
+\arm{hpa-cpu} & \lr{2.5\%} & \lr{13,880} & \lr{1,200} & \lr{5,320} & \lr{2,085.5} & \lr{30.0} & \lr{7/6} & \lr{5} \\
+\arm{hpa-custom} & \lr{4.4\%} & \lr{11,965} & \lr{1,260} & \lr{3,465} & \lr{2,087.3} & \lr{32.5} & \lr{12/12} & \lr{5} \\
+\arm{ours-threshold} & \lr{3.3\%} & \lr{12,365} & \lr{1,410} & \lr{4,015} & \lr{2,088.1} & \lr{0.0} & \lr{9/9} & \lr{5} \\
+\arm{ours-predictive} & \lr{1.1\%} & \lr{14,385} & \lr{960} & \lr{5,585} & \lr{2,070.4} & \lr{20.0} & \lr{16/15} & \lr{9} \\
+\arm{ours-pred.-per-replica} & \lr{1.9\%} & \lr{13,465} & \lr{1,215} & \lr{4,940} & \lr{2,077.2} & \lr{32.5} & \lr{6/12} & \lr{5} \\
+\arm{ours-pred.-nostab} & \lr{13.0\%} & \lr{10,270} & \lr{1,805} & \lr{2,335} & \lr{2,026.6} & \lr{67.5} & \lr{27/23} & \lr{21} \\
+\arm{ours-pred.-per-rep.-nostab} & \lr{42.8\%} & \lr{7,685} & \lr{4,145} & \lr{2,070} & \lr{1,635.4} & \lr{12.5} & \lr{49/50} & \lr{98} \\
+\hline
+\end{tabular}
+\end{table}
+
+\noindent\textbf{یادداشت‌های \arm{bursty}:} بازوهای \arm{static} و \arm{ours-threshold} پس از
+هر سه رگبار هرگز به ۱۲ نمونه نرسیدند. در بازوی \arm{ours-pred.-per-rep.-nostab} سنجه‌ی داخلی
+مقیاس‌گذار ۸۶ درصد (میانه) واگرا شد.
+
+\begin{table}[H]
+\centering
+\scriptsize
+\caption{نتایج کامل — \arm{ramp}}
+\label{tab:app-ramp}
+\begin{tabular}{|l|r|r|r|r|r|r|r|r|}
+\hline
+\textbf{بازو} & \textbf{SLA} & \textbf{نمونه‑ث} & \textbf{کم‌تأمین} & \textbf{بیش‌تأمین} & \textbf{هسته‑ث} & \textbf{واکنش} & \textbf{↑/↓} & \textbf{جهت} \\
+\hline
+\arm{static-peak} & \lr{0.0\%} & \lr{21,720} & \lr{0} & \lr{8,450} & \lr{2,640.8} & \lr{---} & \lr{0/0} & \lr{0} \\
+\arm{static} & \lr{35.6\%} & \lr{14,480} & \lr{2,420} & \lr{3,630} & \lr{2,631.2} & \lr{---} & \lr{0/0} & \lr{0} \\
+\arm{hpa-cpu} & \lr{0.0\%} & \lr{12,990} & \lr{605} & \lr{325} & \lr{2,586.0} & \lr{70.0} & \lr{8/0} & \lr{0} \\
+\arm{hpa-custom} & \lr{4.7\%} & \lr{12,040} & \lr{1,230} & \lr{0} & \lr{2,671.8} & \lr{127.5} & \lr{9/0} & \lr{0} \\
+\arm{ours-threshold} & \lr{4.1\%} & \lr{11,810} & \lr{1,460} & \lr{0} & \lr{2,476.7} & \lr{110.0} & \lr{8/0} & \lr{0} \\
+\arm{ours-predictive} & \lr{0.0\%} & \lr{13,515} & \lr{270} & \lr{575} & \lr{2,585.1} & \lr{30.0} & \lr{10/0} & \lr{0} \\
+\arm{ours-pred.-per-replica} & \lr{0.0\%} & \lr{12,900} & \lr{885} & \lr{515} & \lr{2,475.9} & \lr{87.5} & \lr{11/3} & \lr{5} \\
+\arm{ours-pred.-nostab} & \lr{0.0\%} & \lr{13,395} & \lr{200} & \lr{325} & \lr{2,482.3} & \lr{20.0} & \lr{16/7} & \lr{12} \\
+\arm{ours-pred.-per-rep.-nostab} & \lr{39.5\%} & \lr{7,360} & \lr{6,540} & \lr{630} & \lr{1,496.6} & \lr{10.0} & \lr{60/60} & \lr{119} \\
+\hline
+\end{tabular}
+\end{table}
+
+\noindent\textbf{یادداشت‌های \arm{ramp}:} بازوهای \arm{static}، \arm{ours-threshold} و
+\arm{ours-pred.-per-rep.-nostab} در پله‌های پایانی هرگز به ۱۲ نمونه نرسیدند. در بازوی آخر،
+سنجه‌ی داخلی مقیاس‌گذار ۸۸ درصد (میانه) واگرا شد.
+
+\subsection*{ج-۵: توزیع اجراها}
+
+جدول~\ref{tab:app-runcount} شمار اجراهای گزارش‌شده را به تفکیک دسته می‌آورد.
+
+\begin{table}[H]
+\centering
+\caption{شمار اجراهای گزارش‌شده در این نوشتار}
+\label{tab:app-runcount}
+\begin{tabular}{|l|r|}
+\hline
+\textbf{دسته} & \textbf{شمار} \\
+\hline
+اجراهای معتبر با مقیاس زمانی حقیقی & \lr{49} \\
+\quad از این میان: چهار الگو × هفت بازوی اصلی & \lr{28} \\
+\quad بازوهای حذفی (سه الگو × دو بازو) & \lr{6} \\
+\quad تکرارها و اندازه‌گیری‌های مجدد & \lr{15} \\
+\hline
+اجراهای دودی (مقیاس زمانی $\neq$ ۱) & گزارش نشده \\
+اجراهای نامعتبر & کنار گذاشته‌شده، با ثبت دلیل \\
+\hline
+\end{tabular}
+\end{table}
