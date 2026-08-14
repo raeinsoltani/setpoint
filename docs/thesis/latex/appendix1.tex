@@ -7,8 +7,8 @@
 هر الگوی بار در بر می‌گیرد.
 
 %=============================================================================
-\section*{پیوست الف — پیکربندی}
-\addcontentsline{toc}{section}{پیوست الف — پیکربندی}
+\section*{پیوست الف \mdash{} پیکربندی}
+\addcontentsline{toc}{section}{پیوست الف \mdash{} پیکربندی}
 %=============================================================================
 
 \subsection*{الف-۱: پیکربندی مقیاس‌گذار}
@@ -161,8 +161,8 @@ livenessProbe:                                 # must detect a *deadlocked* proc
 بخش~\ref{sec:design-sampleapp} آمد.
 
 %=============================================================================
-\section*{پیوست ب — راهنمای بازتولید آزمایش‌ها}
-\addcontentsline{toc}{section}{پیوست ب — راهنمای بازتولید}
+\section*{پیوست ب \mdash{} راهنمای بازتولید آزمایش‌ها}
+\addcontentsline{toc}{section}{پیوست ب \mdash{} راهنمای بازتولید}
 %=============================================================================
 
 \subsection*{ب-۱: پیش‌نیازها}
@@ -216,24 +216,25 @@ make analyze       # derive every metric from the stored captures
 اصلاح و همه‌ی اجراهای گذشته را بدون بازگشت به خوشه دوباره امتیازدهی کرد.
 
 %=============================================================================
-\section*{پیوست ج — جدول‌های کامل نتایج}
-\addcontentsline{toc}{section}{پیوست ج — جدول‌های کامل نتایج}
+\section*{پیوست ج \mdash{} جدول‌های کامل نتایج}
+\addcontentsline{toc}{section}{پیوست ج \mdash{} جدول‌های کامل نتایج}
 %=============================================================================
 
 جدول‌های~\ref{tab:app-spike} تا~\ref{tab:app-ramp} تنها پنجره‌ی اندازه‌گیری را در بر
 می‌گیرند؛ مرحله‌های گرم‌کردن و نشست
 کنار گذاشته شده‌اند. «نیاز» برابر $\lceil \lambda(t)/100 \rceil$ از تعریف الگوست و نه از بار
-تحویل‌شده. علامت «---» در ستون زمان واکنش یعنی ناوگان تا پایان پنجره هرگز به عدد لازم نرسید؛
+تحویل‌شده. علامت «\lr{---}» در ستون زمان واکنش یعنی ناوگان تا پایان پنجره هرگز به عدد لازم نرسید؛
 این یک عدد گمشده نیست، بلکه خود نتیجه است.
 
 \begin{table}[H]
 \centering
 \scriptsize
-\caption{نتایج کامل — \arm{spike}}
+\caption{نتایج کامل \mdash{} \arm{spike}}
 \label{tab:app-spike}
+\setlength{\tabcolsep}{3pt}
 \begin{tabular}{|l|r|r|r|r|r|r|r|r|}
 \hline
-\textbf{بازو} & \textbf{SLA} & \textbf{نمونه‑ث} & \textbf{کم‌تأمین} & \textbf{بیش‌تأمین} & \textbf{هسته‑ث} & \textbf{واکنش} & \textbf{↑/↓} & \textbf{جهت} \\
+\textbf{بازو} & \textbf{\lr{SLA}} & \textbf{نمونه-ث} & \textbf{کم‌تأمین} & \textbf{بیش‌تأمین} & \textbf{هسته-ث} & \textbf{واکنش} & \textbf{بالا/پایین} & \textbf{جهت} \\
 \hline
 \arm{static-peak} & \lr{0.0\%} & \lr{23,530} & \lr{0} & \lr{12,100} & \lr{2,464.3} & \lr{---} & \lr{0/0} & \lr{0} \\
 \arm{static} & \lr{32.9\%} & \lr{14,480} & \lr{3,000} & \lr{6,050} & \lr{2,449.5} & \lr{---} & \lr{0/0} & \lr{0} \\
@@ -255,11 +256,12 @@ make analyze       # derive every metric from the stored captures
 \begin{table}[H]
 \centering
 \scriptsize
-\caption{نتایج کامل — \arm{diurnal}}
+\caption{نتایج کامل \mdash{} \arm{diurnal}}
 \label{tab:app-diurnal}
+\setlength{\tabcolsep}{3pt}
 \begin{tabular}{|l|r|r|r|r|r|r|r|r|}
 \hline
-\textbf{بازو} & \textbf{SLA} & \textbf{نمونه‑ث} & \textbf{کم‌تأمین} & \textbf{بیش‌تأمین} & \textbf{هسته‑ث} & \textbf{واکنش} & \textbf{↑/↓} & \textbf{جهت} \\
+\textbf{بازو} & \textbf{\lr{SLA}} & \textbf{نمونه-ث} & \textbf{کم‌تأمین} & \textbf{بیش‌تأمین} & \textbf{هسته-ث} & \textbf{واکنش} & \textbf{بالا/پایین} & \textbf{جهت} \\
 \hline
 \arm{static-peak} & \lr{0.0\%} & \lr{21,720} & \lr{0} & \lr{7,290} & \lr{2,907.8} & \lr{---} & \lr{0/0} & \lr{0} \\
 \arm{static} & \lr{40.3\%} & \lr{14,480} & \lr{2,490} & \lr{2,540} & \lr{2,895.9} & \lr{---} & \lr{0/0} & \lr{0} \\
@@ -278,11 +280,12 @@ make analyze       # derive every metric from the stored captures
 \begin{table}[H]
 \centering
 \scriptsize
-\caption{نتایج کامل — \arm{bursty}}
+\caption{نتایج کامل \mdash{} \arm{bursty}}
 \label{tab:app-bursty}
+\setlength{\tabcolsep}{3pt}
 \begin{tabular}{|l|r|r|r|r|r|r|r|r|}
 \hline
-\textbf{بازو} & \textbf{SLA} & \textbf{نمونه‑ث} & \textbf{کم‌تأمین} & \textbf{بیش‌تأمین} & \textbf{هسته‑ث} & \textbf{واکنش} & \textbf{↑/↓} & \textbf{جهت} \\
+\textbf{بازو} & \textbf{\lr{SLA}} & \textbf{نمونه-ث} & \textbf{کم‌تأمین} & \textbf{بیش‌تأمین} & \textbf{هسته-ث} & \textbf{واکنش} & \textbf{بالا/پایین} & \textbf{جهت} \\
 \hline
 \arm{static-peak} & \lr{0.0\%} & \lr{21,720} & \lr{0} & \lr{11,960} & \lr{2,094.8} & \lr{---} & \lr{0/0} & \lr{0} \\
 \arm{static} & \lr{17.4\%} & \lr{14,480} & \lr{1,440} & \lr{6,160} & \lr{2,091.7} & \lr{---} & \lr{0/0} & \lr{0} \\
@@ -304,11 +307,12 @@ make analyze       # derive every metric from the stored captures
 \begin{table}[H]
 \centering
 \scriptsize
-\caption{نتایج کامل — \arm{ramp}}
+\caption{نتایج کامل \mdash{} \arm{ramp}}
 \label{tab:app-ramp}
+\setlength{\tabcolsep}{3pt}
 \begin{tabular}{|l|r|r|r|r|r|r|r|r|}
 \hline
-\textbf{بازو} & \textbf{SLA} & \textbf{نمونه‑ث} & \textbf{کم‌تأمین} & \textbf{بیش‌تأمین} & \textbf{هسته‑ث} & \textbf{واکنش} & \textbf{↑/↓} & \textbf{جهت} \\
+\textbf{بازو} & \textbf{\lr{SLA}} & \textbf{نمونه-ث} & \textbf{کم‌تأمین} & \textbf{بیش‌تأمین} & \textbf{هسته-ث} & \textbf{واکنش} & \textbf{بالا/پایین} & \textbf{جهت} \\
 \hline
 \arm{static-peak} & \lr{0.0\%} & \lr{21,720} & \lr{0} & \lr{8,450} & \lr{2,640.8} & \lr{---} & \lr{0/0} & \lr{0} \\
 \arm{static} & \lr{35.6\%} & \lr{14,480} & \lr{2,420} & \lr{3,630} & \lr{2,631.2} & \lr{---} & \lr{0/0} & \lr{0} \\

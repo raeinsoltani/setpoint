@@ -21,6 +21,9 @@ For the index (`\printindex`), run `makeindex AUTthesis` between passes.
 TeX Live is installed through Homebrew (`brew install texlive`), so `xelatex`
 and `bibtex` are on the path.
 
+**Last built clean**: 119 pages, A4, 0 errors, 0 undefined references or
+citations, 4 overfull boxes (worst 8.4pt, under 2% of the line width).
+
 ## Fonts
 
 - **B Nazanin** — required, and installed.
@@ -28,6 +31,33 @@ and `bibtex` are on the path.
   render digits inside maths in Persian. `commands.tex` leaves `\setdigitfont`
   commented out, so digits in formulas are Latin. Uncomment it if the font is
   ever installed.
+
+### What B Nazanin does not contain
+
+This matters more than it sounds. The installed B Nazanin has **no Latin letters
+at all**, and lacks several punctuation marks: the em dash (U+2014), the Arabic
+decimal separator (U+066B), the thousands separator (U+066C), the percent sign
+(U+066A), arrows and a few others. Anything set in those characters while the
+Persian font is active silently prints as an empty box.
+
+Three consequences are handled in the source and should not be undone:
+
+1. Every Latin run in Persian text is wrapped in `\lr{}` (or `\code`/`\arm`,
+   which wrap it for you). **Bare Latin in a section title, a table header or a
+   short caption prints as blank boxes.**
+2. Inside maths, `\text{Latin}` picks up the Persian text font and fails the same
+   way — use `\mathrm{}`. `\text{}` is still correct for Persian content.
+3. Decimals are written with `/` and thousands with `،`, both of which the font
+   has, following normal Persian practice. The em dash is available as `\mdash`,
+   which takes it from the Latin font.
+
+`grep -c "Missing character" AUTthesis.log` after a build is the check. It should
+be 8 — two per column-page in the two glossaries, from inside the template's own
+macros, and they produce no visible defect.
+
+- **Emphasis** is bold, not italic: B Nazanin has no italic shape, so `\emph`
+  would otherwise render as plain upright text and be invisible. `commands.tex`
+  maps `\emph` to `\bfseries`.
 - **IranNastaliq** — installed. The template uses it only on the dedication and
   acknowledgements pages, both of which this thesis omits, so nothing currently
   typesets in it; the `\nastaliq` definition is kept pointing at it in case one

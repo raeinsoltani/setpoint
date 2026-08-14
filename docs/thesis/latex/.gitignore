@@ -1,0 +1,14 @@
+# XeLaTeX build artefacts. The built PDF is covered by the repository-level
+# *.pdf rule, which also keeps the signed proposal out of the history.
+*.aux
+*.bbl
+*.blg
+*.idx
+*.ilg
+*.ind
+*.lof
+*.log
+*.lot
+*.out
+*.toc
+*.synctex.gz

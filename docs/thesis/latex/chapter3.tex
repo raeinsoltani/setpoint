@@ -51,6 +51,7 @@
 \begin{figure}[H]
 \centering
 \begin{latin}
+\resizebox{\linewidth}{!}{%
 \begin{tikzpicture}[
   node distance=8mm,
   box/.style={draw, rounded corners=2pt, align=center, minimum height=9mm,
@@ -85,7 +86,8 @@
     \node[draw, dashed, rounded corners=3pt, fit=(mc)(pe)(sc),
           inner sep=6mm, label={[font=\small\bfseries]below:Custom Autoscaler (Go)}] {};
   \end{scope}
-\end{tikzpicture}
+\end{tikzpicture}%
+}
 \end{latin}
 \caption[معماری سامانه]{معماری سامانه. مقیاس‌گذار سفارشی (کادر نقطه‌چین) سیگنال را از
 \lr{Prometheus} می‌خواند، اندازه‌ی ناوگان را تصمیم می‌گیرد، و آن را از راه زیرمنبع
@@ -98,19 +100,21 @@
 \begin{table}[H]
 \centering
 \small
-\caption{نگاشت مؤلفه‌های معماری به بسته‌ها و واسط‌های کد}
+\caption[نگاشت مؤلفه‌های معماری به بسته‌های کد]{نگاشت مؤلفه‌های معماری به بسته‌ها و
+ واسط‌های کد. همه‌ی بسته‌ها زیر \code{internal/} قرار دارند.}
 \label{tab:design-components}
+\scriptsize
 \begin{tabular}{|l|l|l|l|}
 \hline
 \textbf{مؤلفه} & \textbf{بسته} & \textbf{واسط} & \textbf{پیاده‌سازی‌ها} \\
 \hline
-جمع‌آورنده‌ی سنجه & \code{internal/metrics} & \code{Collector.Read} & \code{Prometheus}، \code{Static} \\
-موتور سیاست & \code{internal/policy} & \code{Policy.Decide} & \code{Threshold}، \code{PredictiveTotalLoad}، \\
+جمع‌آورنده‌ی سنجه & \code{metrics} & \code{Collector.Read} & \code{Prometheus}، \code{Static} \\
+موتور سیاست & \code{policy} & \code{Policy.Decide} & \code{Threshold}، \code{PredictiveTotalLoad}، \\
  & & & \code{PredictivePerReplica} \\
-پیش‌بینی‌کننده & \code{internal/policy} & \code{Forecaster.Update} & \code{EWMATrend}، \code{Holt} \\
-مقیاس‌گذار & \code{internal/scaler} & \code{Scaler.Get} / \code{Set} & \code{Kubernetes}، \code{InMemory} \\
-آشتی‌دهنده & \code{internal/controller} & --- & حلقه‌ی کنترل \\
-صادرکننده‌ی سنجه & \code{internal/observability} & --- & نقطه‌ی \code{/metrics} \\
+پیش‌بینی‌کننده & \code{policy} & \code{Forecaster.Update} & \code{EWMATrend}، \code{Holt} \\
+مقیاس‌گذار & \code{scaler} & \code{Scaler.Get} / \code{Set} & \code{Kubernetes}، \code{InMemory} \\
+آشتی‌دهنده & \code{controller} & \lr{---} & حلقه‌ی کنترل \\
+صادرکننده‌ی سنجه & \code{observability} & \lr{---} & نقطه‌ی \code{/metrics} \\
 \hline
 \end{tabular}
 \end{table}
@@ -177,7 +181,7 @@ d = \left\lceil r \times \frac{m}{T} \right\rceil
 همان بازه، دقیقاً پنجره‌ای است که در یک مقیاس‌گیری به بالا اهمیت دارد.
 
 یک مثال عددی کافی است، که اکنون به شکل آزمون \code{TestFormulaBaseIsReadyNotSpec} تثبیت شده
-است. فرض کنید $\text{spec} = 4$، $r = 2$، $m = 200$ و $T = 100$. پاسخ درست ۴ است. اگر
+است. فرض کنید $\mathrm{spec} = 4$، $r = 2$، $m = 200$ و $T = 100$. پاسخ درست ۴ است. اگر
 \lr{spec} را پایه بگیریم پاسخ ۸ می‌شود، یعنی دو برابر. مقیاس‌گذار بار مشاهده‌شده را بر
 نمونه‌هایی تقسیم می‌کند که درخواست کرده، نه نمونه‌هایی که واقعاً سرویس می‌دهند. پس
 بیش‌ازاندازه مقیاس می‌گیرد.
@@ -224,7 +228,7 @@ d = \left\lceil r \times \frac{m}{T} \right\rceil
 دو پیش‌بینی‌کننده پشت واسط \code{Forecaster} پیاده‌سازی شده است. هر دو حالت‌دار و ارزان‌اند،
 چون در هر چرخه‌ی کنترل یک بار فراخوانی می‌شوند.
 
-\textbf{\code{EWMATrend}} — پیش‌فرض پیکربندی. سری را با میانگین متحرک نمایی هموار می‌کند و
+\textbf{\code{EWMATrend}} \mdash{} پیش‌فرض پیکربندی. سری را با میانگین متحرک نمایی هموار می‌کند و
 سپس اختلاف دو مقدار هموارشده‌ی متوالی را به‌عنوان برآورد شیب می‌گیرد و به‌صورت خطی برون‌یابی
 می‌کند:
 
@@ -234,12 +238,12 @@ d = \left\lceil r \times \frac{m}{T} \right\rceil
 \hat{x}_{k+h} &= \max\!\left(0,\; \ell_k + h\,(\ell_k - \ell_{k-1})\right)
 \end{align}
 
-\textbf{\code{Holt}} — هموارسازی نمایی مضاعف مطابق برابری~\ref{eq:holt}، که سطح و شیب را با
+\textbf{\code{Holt}} \mdash{} هموارسازی نمایی مضاعف مطابق برابری~\ref{eq:holt}، که سطح و شیب را با
 دو ضریب جداگانه نگه می‌دارد و بنابراین یک روند پایدار را به اندازه‌ی \code{EWMATrend} میرا
 نمی‌کند.
 
 دو نکته‌ی پیاده‌سازی در هر دو مشترک است. نخست، کف \emph{نامنفی} روی خروجی: پیش‌بینی منفی برای
-نرخ ورود درخواست بی‌معناست و — چنان‌که در بخش~\ref{sec:design-defects} می‌آید — اگر به
+نرخ ورود درخواست بی‌معناست و \mdash{} چنان‌که در بخش~\ref{sec:design-defects} می‌آید \mdash{} اگر به
 فرمول برسد به یک مقیاس‌گیری به پایینِ ناشی از نقص اندازه‌گیری می‌انجامد. دوم، مسیر جداگانه‌ای
 برای ورودی \lr{NaN} یا بی‌نهایت، که در عمل یعنی یک \lr{scrape} ازدست‌رفته.
 
@@ -329,14 +333,15 @@ d = \left\lceil \frac{\hat{\lambda}_{k+h}}{T} \right\rceil
 از یک مشاهده‌ی تجربی به یک ویژگی ساختاری ارتقا می‌دهد.
 
 اثر را در حلقه‌ی بسته و مستقل از هر زیرساختی اندازه گرفتیم، در آزمون
-\code{TestPerReplicaForecastingOscillatesUnderConstantLoad}. بار کل ثابت ۵۰۰ درخواست بر ثانیه
-بود، هدف ۱۰۰، پیش‌بینی‌کننده \lr{EWMA} با افق ۳ و $\alpha$ برابر ۰٫۵. چهل گام اجرا شد که ده
+\code{TestPerReplica\-Forecasting\-Oscillates\-Under\-ConstantLoad}. بار کل ثابت ۵۰۰ درخواست بر ثانیه
+بود، هدف ۱۰۰، پیش‌بینی‌کننده \lr{EWMA} با افق ۳ و $\alpha$ برابر ۰/۵. چهل گام اجرا شد که ده
 گام نخست آن به عنوان شیب اولیه کنار گذاشته شد. سازوکار پایدارسازی خاموش بود.
 
 \begin{table}[H]
 \centering
 \caption{نوسان تحت بار کل \emph{ثابت}، در آزمون واحد حلقه‌بسته}
 \label{tab:design-oscillation-unit}
+\small
 \begin{tabular}{|l|c|l|}
 \hline
 \textbf{سیاست} & \textbf{تغییر تعداد نمونه در ۳۰ گام پایدار} & \textbf{ناوگان} \\
@@ -359,10 +364,10 @@ d = \left\lceil \frac{\hat{\lambda}_{k+h}}{T} \right\rceil
 \label{tab:design-oscillation-sim}
 \begin{tabular}{|l|c|l|l|}
 \hline
-\textbf{سیاست} & \textbf{تغییر تعداد نمونه} & \textbf{هزینه} & \textbf{نقض SLA} \\
+\textbf{سیاست} & \textbf{تغییر تعداد نمونه} & \textbf{هزینه} & \textbf{نقض \lr{SLA}} \\
 \hline
 \code{Threshold} & 4 & مبنا & مبنا \\
-\code{PredictivePerReplica} & \textbf{17} & ‎+۲۳٪ & یکسان \\
+\code{PredictivePerReplica} & \textbf{17} & ‎+۲۳ درصد & یکسان \\
 \code{PredictiveTotalLoad} & \textbf{3} & برابر \code{Threshold} & بهتر روی \arm{diurnal} \\
 \hline
 \end{tabular}
@@ -391,7 +396,7 @@ d = \left\lceil \frac{\hat{\lambda}_{k+h}}{T} \right\rceil
 
 \begin{equation}
 \label{eq:stabilize}
-d_{\text{applied}} =
+d_{\mathrm{applied}} =
 \begin{cases}
 d_k & d_k > r \quad\text{(مقیاس به بالا، بی‌درنگ)}\\[2mm]
 \max\{\, d_j \;:\; t_k - W \le t_j \le t_k \,\} & d_k < r \quad\text{(مقیاس به پایین)}
@@ -462,7 +467,7 @@ d_k & d_k > r \quad\text{(مقیاس به بالا، بی‌درنگ)}\\[2mm]
 \end{table}
 
 این سنجه‌ها سه کاربرد دارند. یکی مصورسازی در \lr{Grafana}. دوم، پایش سلامت خود مقیاس‌گذار.
-سوم — و مهم‌ترین برای این نوشتار — یک \emph{بررسی اعتبار مستقل}. تفاوت میان
+سوم \mdash{} و مهم‌ترین برای این نوشتار \mdash{} یک \emph{بررسی اعتبار مستقل}. تفاوت میان
 \code{autoscaler\_raw\_recommendation} و \code{autoscaler\_desired\_replicas} دقیقاً می‌گوید
 میراگر چه مقدار کار انجام داده است؛ و مقایسه‌ی \code{autoscaler\_metric\_value} با بار
 مشاهده‌شده‌ی هر نمونه، امضای پس‌خور مثبت را آشکار می‌کند. در
@@ -488,12 +493,12 @@ d_k & d_k > r \quad\text{(مقیاس به بالا، بی‌درنگ)}\\[2mm]
   \item صدور تصمیم و ورودی‌هایش روی \lr{/metrics}.
 \end{enumerate}
 
-شکست در هر گام ثبت می‌شود و تعداد نمونه‌ی جاری نگه داشته می‌شود. این انتخاب — «نگه‌داشتن» به
-جای «حدس زدن» — تنها پاسخ امن به نبود اطلاعات است: قطعی \lr{Prometheus} شاهدی بر بالا رفتن یا
+شکست در هر گام ثبت می‌شود و تعداد نمونه‌ی جاری نگه داشته می‌شود. این انتخاب \mdash{} «نگه‌داشتن» به
+جای «حدس زدن» \mdash{} تنها پاسخ امن به نبود اطلاعات است: قطعی \lr{Prometheus} شاهدی بر بالا رفتن یا
 پایین آمدن بار نیست.
 
-\textbf{سربار خود مقیاس‌گذار.} در یک اجرای واقعی، ۱۸ چرخه‌ی آشتی‌دهی مجموعاً ۰٫۰۶۸ ثانیه طول
-کشید، یعنی حدود ۳٫۸ میلی‌ثانیه بر چرخه در برابر یک فاصله‌ی ۱۵ ثانیه‌ای. حلقه‌ی کنترل به هیچ
+\textbf{سربار خود مقیاس‌گذار.} در یک اجرای واقعی، ۱۸ چرخه‌ی آشتی‌دهی مجموعاً ۰/۰۶۸ ثانیه طول
+کشید، یعنی حدود ۳/۸ میلی‌ثانیه بر چرخه در برابر یک فاصله‌ی ۱۵ ثانیه‌ای. حلقه‌ی کنترل به هیچ
 وجه گلوگاه نیست، و این عدد پاسخ روشنی به پرسش «آیا زمان واکنش اندازه‌گیری‌شده‌ی شما صرفاً
 کندی کنترل‌گر خودتان نیست؟» می‌دهد. این همان نیازمندی غیرکارکردی «سربار منابع پایین» است.
 
@@ -538,7 +543,7 @@ d_k & d_k > r \quad\text{(مقیاس به بالا، بی‌درنگ)}\\[2mm]
 انتخاب عدد ۲۰ برای بیشینه‌ی نمونه خودش یک تصمیم ارزیابی است و نه یک عدد دلبخواه. همه‌ی چهار
 الگوی بار در اوج به ۱۲۰۰ تا ۱۳۰۰ درخواست بر ثانیه می‌رسند، که در برابر هدف ۱۰۰ یعنی ۱۲ تا ۱۳
 نمونه. اگر سقف ۱۰ می‌بود، \emph{همه‌ی} بازوهای خودکار در اوج به سقف می‌خوردند و هر کدام با ۱۰
-نمونه و ۱۳۰ درخواست بر ثانیه بر نمونه کار می‌کردند — یعنی همگی یکسان و بالای خط کیفیت خدمت.
+نمونه و ۱۳۰ درخواست بر ثانیه بر نمونه کار می‌کردند \mdash{} یعنی همگی یکسان و بالای خط کیفیت خدمت.
 آنگاه سنجه‌ی نقض کیفیت خدمت دقیقاً در همان نقطه‌ای که مقایسه بیشترین اهمیت را دارد، بازوها را
 از هم تفکیک نمی‌کرد، و سیاست پیش‌بینانه به دلیلی که هیچ ربطی به سیاست ندارد بهتر از واکنشی به
 نظر نمی‌رسید. ظرفیت گره محدودیت نبود: ۲۰ نمونه ۴ هسته از ۱۴ هسته‌ی گره را درخواست می‌کنند.
@@ -584,7 +589,7 @@ d_k & d_k > r \quad\text{(مقیاس به بالا، بی‌درنگ)}\\[2mm]
 کالیبراسیون و تأیید آن در خوشه در بخش~\ref{sec:method-calibration} آمده است.
 
 برنامه‌ی نمونه سه سنجه منتشر می‌کند: شمارنده‌ی \code{http\_requests\_total}، بافه‌ی
-\code{http\_request\_duration\_seconds}، و سنجه‌ی لحظه‌ای \code{http\_requests\_in\_flight}.
+\code{http\_request\_\-duration\_\-seconds}، و سنجه‌ی لحظه‌ای \code{http\_requests\_in\_flight}.
 دو پارامتر محیطی نیز دارد که رفتار آن را تنظیم می‌کنند: \code{WORK\_CPU\_MS} برای مقدار
 پردازش هر درخواست و \code{WORK\_MAX\_CONCURRENT} برای سقف هم‌زمانی.
 
@@ -608,7 +613,7 @@ d_k & d_k > r \quad\text{(مقیاس به بالا، بی‌درنگ)}\\[2mm]
 
 \textbf{\lr{kubectl port-forward} نمی‌تواند به یک ناوگان بار بدهد.} این فرمان \emph{یک} نقطه‌ی
 انتهایی را حل می‌کند و همان را نگه می‌دارد. هر آزمایشی از این راه، به ظرفیت یک نمونه محدود
-می‌ماند در حالی که ناوگان زیر آن بزرگ می‌شود و بی‌استفاده می‌ماند — و همه‌ی بازوها یکسان به
+می‌ماند در حالی که ناوگان زیر آن بزرگ می‌شود و بی‌استفاده می‌ماند \mdash{} و همه‌ی بازوها یکسان به
 نظر می‌رسند چون هیچ‌کدام واقعاً بارگذاری نشده‌اند. به همین دلیل \lr{Service} از نوع
 \lr{LoadBalancer} تعریف شده است.
 
