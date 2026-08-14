@@ -134,6 +134,23 @@
 \vspace*{-0.8cm}
 {\fontsize{18pt}{19pt}\selectfont\bfseries\par\ffirstadvisor{} و \fsecondadvisor}
 \fi\fi}
+\par\fontsize{16pt}{17pt}\selectfont\bfseries
+{\ifx\finternalexaminer\undefined%
+\ifx\fexternalexaminer\undefined%
+\else\fi
+\else
+\ifx\fexternalexaminer\undefined%
+استاد داور
+\vspace*{-0.8cm}
+{\fontsize{18pt}{19pt}\selectfont\bfseries\par
+\finternalexaminer}
+\else
+
+\fontsize{16pt}{17pt}\selectfont\bfseries
+استادان داور
+\vspace*{-0.8cm}
+{\fontsize{18pt}{19pt}\selectfont\bfseries\par\finternalexaminer{} و \fexternalexaminer}
+\fi\fi}
 
 \vskip 6mm
 
