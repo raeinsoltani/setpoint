@@ -1523,3 +1523,68 @@ reproducible from the committed source, identified by digest `d089f870ba7a` and 
 committed source would shed with 503 above 16 in-flight, which the collapsed arms would have
 triggered at their peak of 61, so a rebuild is not a refinement — it is a different
 experiment. Reconciling image and source is post-thesis work.
+
+### 11.19 An examiner's read of the thesis finds four numbers that do not hold — 2026-08-16
+
+A fresh reviewer was given the thesis sources, this notebook and `results/` and asked to
+audit it as a defence examiner. Four findings survived my own re-check against the raw
+captures. All four are write-up errors, not measurement errors — the data was right and
+the sentences describing it had drifted.
+
+**1. §11.15's ready-replica averages are wrong, and the real numbers are stronger.**
+This notebook records "3.7, 4.1 and 3.8 with a minimum of 1 (and one `spike` repeat
+averaged 1.1)" for the three `per-replica-nostab` runs. Recomputed inside the measurement
+window from `series.json`, and cross-checked against `metrics.csv`:
+
+| run | mean ready | max ready |
+|---|---|---|
+| `spike/per-replica-nostab` (`20260812T170616Z`) | **1.00** | **1** |
+| `ramp/per-replica-nostab` | 4.07 | 9 |
+| `bursty/per-replica-nostab` | 4.25 | 20 |
+
+The 1.1 figure I attributed to "one `spike` repeat" is the *non-smoke* spike run — the one
+the headline 50.8% comes from. Over its full 1801 s window `ready_replicas` never leaves
+1.00 (min = mean = max = 1) while `spec_replicas` reaches 11 across exactly 120 moves,
+60 up and 60 down. The fleet never got a second pod into service for the entire run.
+That is a far sharper statement of total control failure than "averaged 3.7", and it is
+consistent with 1,810 replica-seconds / 1800 s = 1.006.
+
+**2. The "feedback signature" is a misread diagnostic.** §11.11 and the thesis cited
+`analyze.py`'s `autoscaler_metric_value` vs `per_replica_rps` divergence (86–135%) as
+evidence of feedback. Those two series are the *same PromQL expression* —
+`deploy/setpoint/configmap.yaml:25-27` and `run.sh:482` are byte-identical. Feedback moves
+both equally and cannot separate them; the divergence is sampling skew between the
+controller's 15 s cadence and the analyzer's 5 s grid, with `count(up)` moving between
+reads. `analyze.py:382-385` says in its own comment that a divergence means the analysis
+is not looking at the signal the policy acted on. It is a data-integrity warning, and it
+fires on exactly the three runs carrying the headline figures. Withdrawn as evidence and
+recorded as a validity limit instead; the fleet-collapse and under-provisioning witnesses
+are independent of that series and sufficient.
+
+**3. `ours-predictive` has no dead-band, and the comparison never disclosed it.**
+`PredictiveTotalLoad.Decide` calls `FleetFor`, which takes no tolerance parameter;
+`Threshold` (via `DesiredReplicas`), `hpa-cpu` and `hpa-custom` all apply the 10% band.
+The config table advertises `tolerance: 0.10` as global, and it is inert for this policy.
+Open question 2 from §11.12 raised this and it was never settled. A controller with no
+dead-band moves sooner, and reaction time is the lead metric — so part of the 4× gap is
+plausibly the missing band rather than prediction. Not resolvable without a run:
+`ours-predictive` with `tolerance: 0.10` on one workload would close it in ~34 minutes.
+
+**4. Two delivery measures were conflated.** The 0.385/0.409/0.413 ratios here are
+*fleet-side*, `sum(rate(http_requests_total[1m]))` sampled inside ≥150 s plateaus.
+`analyze.py`'s `delivery_ratio` is *k6-issued* `http_reqs`, and reports 0.999/0.988/0.999
+for the same three runs. Both are correct and they measure different things: k6 sent
+nearly everything, the collapsed fleet served a fraction. This also means the automated
+validity gate "delivered load ≥95% of the pattern integral" never checked delivery to the
+fleet at all — which is precisely why it passed every run affected by §11.13.
+
+Fleet-side means over the measurement window, for the record: `spike` 368.9 req/s
+(max 675.3), `bursty` 433.0 (max 1199.9), `ramp` 415.4 (max 551.7).
+
+**Also noted, not yet acted on.** `metrics.csv` carries a `p99_ms` column that separates
+the collapsed arms from everything else by three orders of magnitude — 1930 / 2135 / 1011 ms
+against 2.49 ms elsewhere. The thesis states twice that it has no user-visible corroboration
+of harm. This is a candidate, but the runs predate the load fix and the connection pinning
+is *not* equal across arms (it is total at one ready replica), so the contrast is
+confounded in a way I cannot currently bound. Left out of the thesis deliberately rather
+than by oversight.

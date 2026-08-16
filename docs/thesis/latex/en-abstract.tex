@@ -26,12 +26,15 @@ intervals of an 1800-second run and reaches 50.8\% SLA violations, whereas with 
 90-second stabilization window it passes every test in the suite.
 
 The evaluation was carried out on a real Kubernetes cluster across four workload patterns
-and nine comparison arms, comprising 49 valid runs in total. The correct predictive
-policy achieves the lowest SLA violation rate and the lowest under-provisioning on all
-four workloads, and its median reaction time on the diurnal workload is roughly four
-times better than that of the default autoscaler driven by the same custom metric; but
-this advantage is bought with roughly 6 to 20 percent more capacity. The defensible claim is
-therefore a trade-off rather than outright dominance. The methodological conclusion is
+and nine comparison arms, comprising 49 valid runs in total. Among the autoscaling arms,
+the correct predictive policy achieves the lowest under-provisioning on all four
+workloads; its SLA violation rate is the lowest on two of them and tied with the lowest
+on the other two. Its median reaction time on the diurnal workload is roughly four times
+better than that of the default autoscaler driven by the same custom metric; but this
+advantage is bought with 5.7 to 20.2 percent more capacity. Static provisioning at peak
+load attains a better SLA violation rate than any autoscaling arm, and pays for it with
+substantially more capacity. The defensible claim is therefore a trade-off rather than
+outright dominance. The methodological conclusion is
 that evaluating the stability of a predictive policy requires disabling the stabilization
 mechanism and using a workload with discontinuities; otherwise the evaluation measures
 something that has already been hidden.
