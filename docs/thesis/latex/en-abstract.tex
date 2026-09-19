@@ -23,10 +23,11 @@ the loop acquires positive gain. This instability is almost invisible in convent
 quality-of-service and cost metrics, because the stabilization mechanism masks it. With
 that mechanism removed, the same policy reverses direction 119 times over the 120 control
 intervals of an 1800-second run and reaches 50.8\% SLA violations, whereas with a
-90-second stabilization window it passes every test in the suite.
+90-second stabilization window it passes every test in the suite. Two independent
+repeats reproduced the signature (119 and 115 reversals).
 
 The evaluation was carried out on a real Kubernetes cluster across four workload patterns
-and nine comparison arms, comprising 49 valid runs in total. Among the autoscaling arms,
+and nine comparison arms, comprising 53 valid runs in total. Among the autoscaling arms,
 the correct predictive policy achieves the lowest under-provisioning on all four
 workloads; its SLA violation rate is the lowest on two of them and tied with the lowest
 on the other two. Its median reaction time on the diurnal workload is roughly four times

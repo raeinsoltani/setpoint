@@ -1588,3 +1588,98 @@ of harm. This is a candidate, but the runs predate the load fix and the connecti
 is *not* equal across arms (it is total at one ready replica), so the contrast is
 confounded in a way I cannot currently bound. Left out of the thesis deliberately rather
 than by oversight.
+
+### 11.20 Repeats of the ablation arms, and three things the write-up had wrong — 2026-09-19
+
+Defence moved to end of Mehr 1405 (22 Oct 2026), which buys time for the one measurement
+the examiner-style review called the cheapest strengthening of the central result: every
+`-nostab` cell was n = 1. Queued two more `spike` runs of each of the two unstabilized
+arms, interleaved, under the pinned image and the current load contract
+(`per-request-connections-v2`). Results are at the end of this entry.
+
+**Latency figures are histogram buckets, not measurements.** Every latency number in the
+evaluation comes from `histogram_quantile` over the app's histogram, whose bucket edges
+are 1, 2.5, 5, 10, 25, 50, 100, 250, 500 ms, 1, 2.5, 5 s (`cmd/sample-app/main.go:57`).
+Prometheus interpolates linearly inside a bucket, so "2.43 ms p95" means "in the 1–2.5 ms
+bucket" and its decimals carry no information. Likewise 352 ms is "250–500 ms" and
+1930 ms is "1–2.5 s". The thesis now reads every latency figure at that resolution.
+
+**p99, and §11.19's reason for leaving it out.** §11.19 left p99 out deliberately: the
+pre-fix runs pinned connections, and the pinning is not equal across arms. Looked at
+again, the confound has a specific shape. On `ramp` and `bursty` the collapsed fleet
+grows and shrinks all run, and every shrink cuts the connections pinned to the removed
+pods, so part of that tail may be reconnection rather than missing capacity — not
+separable in the pre-fix data. On `spike` the single ready pod is never removed, so the
+confound does not apply there. The repeats below run under v2, with no pinning, and give
+the same contrast unconfounded. p99 is now in the thesis with the confound stated for the
+pre-fix runs and the v2 repeats as the clean measurement.
+
+**The warm-vs-cold capacity contradiction.** The thesis quoted "one warm replica serves
+2200 req/s at 3.34 ms" a page before a table showing one replica at 2276 ms p95 on
+800 req/s. The table fired bursts at replicas that had been idle — the cold-burst regime
+in §11.17's second table, where the same single replica serves 800 req/s at 2.68 ms once
+warm. Not a contradiction, two quantities; the thesis now names which regime each is.
+
+**`median_reaction_s` dropped never-reached steps.** It filtered to finite values before
+the median, so `bursty/ours-threshold` — which missed all three bursts and met three minor
+steps it was already provisioned for — reported 0.0 s. Never-reached is now +inf and stays
+in the median. Changes: `bursty/ours-threshold` 0.0 → never, `bursty/per-replica-nostab`
+12.5 → 40.0, `ramp/ours-threshold` 110.0 → 117.5. `analyze.py --as-of 20260814T000000Z`
+regenerates the thesis's tables without today's runs; its `metrics.csv` differs from the
+previous one in the reaction column of 7 rows and nowhere else.
+
+**CPU core-seconds does not discriminate.** Excluding the collapsed arm it varies 3.4–7.9%
+between arms within each workload, while replica-seconds varies 51–111%. An idle replica
+costs reservation, not CPU — which supports "the SLA metric measures capacity reservation".
+
+**The latency the thesis reported was the handler's, not the user's — and the user's
+discriminates.** The histogram times only what happens inside the request handler. k6's
+`http_req_duration` and `http_req_failed` in every `k6-summary.json` time the whole request
+from the client and count failures, and were never read into the evaluation. For the 34
+cited runs:
+
+| group | runs | client p95 | failed |
+|---|---|---|---|
+| everything else | 27 | 2.4–2.9 ms | ≤ 0.06% |
+| `per-replica-nostab` (spike / ramp / bursty) | 3 | 2022 / 2067 / 1957 ms | **41.0 / 38.7 / 19.4%** |
+| `ramp` threshold, per-replica, predictive-nostab; `bursty` predictive-nostab | 4 | 334–612 ms | 0% |
+
+Server-side p95 is in the lowest bucket for all seven outliers: a request that fails, or
+queues before the app, never reaches the histogram. On `spike` the 41% failures match the
+fleet-side under-delivery from the other side (368.9 served of 633 offered on average;
+§11.19 item 4). This is the user-visible harm §11.17 and §11.19 said the evaluation did not
+have — it was in the k6 summaries all along.
+
+The four 334–612 ms tails are unexplained. All four are pre-v2. `ramp/ours-threshold`
+never scales down (8/0), so cut pinned connections do not explain it; two of the four
+score 0.0% SLA. Open.
+
+**Results — all four valid, pinned image `…56cd2d6c`, contract v2.** `spike`, 1800 s each:
+
+| arm | run | SLA | reversals | up/down | replica-s | mean/max ready | client p95 | failed |
+|---|---|---|---|---|---|---|---|---|
+| `per-replica-nostab` | original `20260812T170616Z` (pre-v2) | 50.8% | 119 | 60/60 | 1,810 | 1.00 / 1 | 2022 ms | 41.0% |
+| `per-replica-nostab` | `20260919T112113Z` | 50.4% | 119 | 60/60 | 7,880 | 4.37 / 14 | 2341 ms | 24.5% |
+| `per-replica-nostab` | `20260919T122953Z` | 32.9% | 115 | 60/58 | 8,920 | 4.93 / 20 | 2281 ms | 18.6% |
+| `predictive-nostab` | original `20260812T174036Z` (pre-v2) | 4.1% | 43 | 28/28 | 12,355 | 6.83 / 18 | 2.9 ms | 0.00% |
+| `predictive-nostab` | `20260919T115532Z` | 4.7% | 42 | 27/26 | 12,245 | 6.77 / 17 | 3.3 ms | 0.04% |
+| `predictive-nostab` | `20260919T130412Z` | 4.2% | 39 | 26/25 | 12,260 | 6.79 / 17 | 3.3 ms | 0.05% |
+
+What this settles:
+
+- **The control signature reproduces, under both load contracts.** 119, 119, 115 reversals
+  of 120 intervals: the controller still flips direction at essentially every interval.
+  The healthy unstabilized arm is tight (43 / 42 / 39; 4.1 / 4.7 / 4.2%; replica-seconds
+  within 1%). The central result is not an artefact of the §11.13 connection defect.
+- **The broken arm's SLA figure is noisy: 50.8 / 50.4 / 32.9%**, a spread of ~18 points
+  against the ~1.5 the healthy arms show — what an oscillating controller should do. Its
+  lowest value is still ~7× the healthy arm's highest.
+- **§11.19's "ready never left 1" was a property of that run, not the arm.** The repeats
+  average 4.37 and 4.93 ready (max 14 and 20). The thesis now says so; the figure still
+  plots the original run and its caption says the collapse is partial in the repeats.
+- **User harm reproduces without pinning:** 24.5% and 18.6% failed vs 0.04% / 0.05% for the
+  healthy arm under the same contract.
+
+Valid runs: 53 (was 49); 8 of them under v2. `results/` stays pinned at
+`--as-of 20260814T000000Z` (`make analyze`), because the thesis reports these as repeats,
+not replacements. Raw data for all runs is gitignored and exists only on this machine.
