@@ -21,7 +21,7 @@ For the index (`\printindex`), run `makeindex AUTthesis` between passes.
 TeX Live is installed through Homebrew (`brew install texlive`), so `xelatex`
 and `bibtex` are on the path.
 
-**Last built clean**: 123 pages, A4, 0 errors, 0 undefined references or
+**Last built clean**: 124 pages, A4, 0 errors, 0 undefined references or
 citations, 4 overfull boxes (worst 8.4pt, under 2% of the line width).
 
 ## Figures
