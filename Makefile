@@ -16,7 +16,7 @@ PY := $(shell [ -x sim/.venv/bin/python ] && echo sim/.venv/bin/python || echo p
 .PHONY: build build-sample test cover vet lint image sample-image deploy undeploy \
         dry-run clean monitoring servicemonitors dashboard deploy-sample \
         undeploy-sample stack-up stack-down grafana prometheus load calibrate \
-        experiment sweep analyze
+        experiment sweep analyze thesis-figures
 
 build:
 	go build -o $(BINARY) ./cmd/setpoint
@@ -158,8 +158,18 @@ sweep:
 	if [ -n "$$failed" ]; then echo "FAILED ARMS:$$failed"; else echo "all arms completed"; fi
 	@$(MAKE) analyze
 
+# The committed results/ and the thesis figures come from the runs recorded before this
+# cutoff. Runs after it (the 2026-09-19 ablation repeats) are reported in the thesis as
+# repeats, not replacements, and analyze.py keeps only the latest run per (pattern, arm),
+# so without the cutoff a plain `make analyze` would silently swap the runs the tables
+# cite. `make analyze AS_OF=` analyses everything.
+AS_OF ?= 20260814T000000Z
+
 analyze:
-	$(PY) experiments/analyze.py
+	$(PY) experiments/analyze.py $(if $(AS_OF),--as-of $(AS_OF))
+
+thesis-figures:
+	$(PY) experiments/thesis_figures.py $(if $(AS_OF),--as-of $(AS_OF))
 
 clean:
 	rm -rf bin coverage.out
