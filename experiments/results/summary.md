@@ -94,7 +94,7 @@ them as this arm's noise floor.
 |---|---|---|---:|---|---|---|---|
 | `bursty` | `ours-predictive` | `shared-connections-pre-v2` | 3 | 0.8, 0.3, 1.1  (Δ0.8) | 14,545, 14,545, 14,385  (Δ160) | 6, 7, 9  (Δ3) | 25.0, 25.0, 20.0  (Δ5.0) |
 | `bursty` | `ours-predictive-per-replica` | `shared-connections-pre-v2` | 3 | 2.5, 2.2, 1.9  (Δ0.5) | 13,715, 13,760, 13,465  (Δ295) | 10, 6, 5  (Δ5) | 27.5, 30.0, 32.5  (Δ5.0) |
-| `ramp` | `ours-threshold` | `shared-connections-pre-v2` | 2 | 5.2, 4.1  (Δ1.1) | 12,050, 11,810  (Δ240) | 0, 0  (Δ0) | 125.0, 110.0  (Δ15.0) |
+| `ramp` | `ours-threshold` | `shared-connections-pre-v2` | 2 | 5.2, 4.1  (Δ1.1) | 12,050, 11,810  (Δ240) | 0, 0  (Δ0) | 125.0, 117.5  (Δ7.5) |
 | `ramp` | `static` | `shared-connections-pre-v2` | 2 | 35.5, 35.6  (Δ0.2) | 14,440, 14,480  (Δ40) | 0, 0  (Δ0) | 0.0, 0.0  (Δ0.0) |
 | `spike` | `hpa-custom` | `shared-connections-pre-v2` | 2 | 2.8, 2.8  (Δ0.0) | 17,105, 17,055  (Δ50) | 0, 0  (Δ0) | 65.0, 70.0  (Δ5.0) |
 | `spike` | `ours-predictive` | `shared-connections-pre-v2` | 3 | 0.3, 0.8, 0.6  (Δ0.6) | 14,085, 14,350, 14,280  (Δ265) | 3, 5, 7  (Δ4) | 65.0, 60.0, 35.0  (Δ30.0) |

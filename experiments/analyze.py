@@ -228,8 +228,11 @@ class Metrics:
 
     @property
     def median_reaction_s(self) -> float:
-        finite = [r for r in self.reaction_times_s if math.isfinite(r)]
-        return float(np.median(finite)) if finite else float("nan")
+        # A step the fleet never caught up with is +inf, and it stays in the median. This
+        # used to drop it, which let bursty/ours-threshold -- it missed all three bursts --
+        # report 0.0 s from the three minor steps it was already provisioned for: the arm
+        # that never reacted read as the arm that reacted instantly. inf means "never".
+        return float(np.median(self.reaction_times_s)) if self.reaction_times_s else float("nan")
 
 
 def k6_quantile(k6: dict, key: str) -> float:
@@ -482,7 +485,12 @@ def write_pattern_table(pattern: str, rows: Sequence[Metrics], path: str) -> Non
         "|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|",
     ]
     for m in rows:
-        reaction = "n/a" if not m.reaction_times_s else fmt(m.median_reaction_s) + " s"
+        if not m.reaction_times_s:
+            reaction = "n/a"
+        elif math.isinf(m.median_reaction_s):
+            reaction = "never"
+        else:
+            reaction = fmt(m.median_reaction_s) + " s"
         lines.append(
             f"| `{m.arm}` | {fmt(m.sla_violation_pct)}% | {fmt(m.replica_seconds, 0)} | "
             f"{fmt(m.under_provision_replica_seconds, 0)} | {fmt(m.over_provision_replica_seconds, 0)} | "
@@ -755,11 +763,18 @@ def main() -> int:
                     help="include TIME_SCALE != 1 runs; they are not evaluation results")
     ap.add_argument("--include-invalid", action="store_true",
                     help="include runs run.sh marked invalid")
+    ap.add_argument("--as-of", metavar="TIMESTAMP",
+                    help="ignore runs recorded at or after this run.json timestamp, e.g. "
+                         "20260814T000000Z to reproduce the tables the thesis cites")
     args = ap.parse_args()
 
     os.makedirs(args.out, exist_ok=True)
 
     runs = load_runs(args.raw)
+    if args.as_of:
+        later = [r for r in runs if r.meta.get("timestamp", "") >= args.as_of]
+        runs = [r for r in runs if r.meta.get("timestamp", "") < args.as_of]
+        print(f"--as-of {args.as_of}: ignoring {len(later)} later run(s)")
     if not runs:
         print(f"no runs found under {args.raw}")
         print("run one with:  ./experiments/run.sh --arm ours-predictive --pattern ramp")

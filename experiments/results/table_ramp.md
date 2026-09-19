@@ -9,7 +9,7 @@ Measurement window only; warmup and settle excluded. Required replicas are
 | `static` | 35.6% | 14,480 | 2,420 | 3,630 | 2,631.2 | 0.0 s | 0/0 | 0 | 2.4 ms |
 | `hpa-cpu` | 0.0% | 12,990 | 605 | 325 | 2,586.0 | 70.0 s | 8/0 | 0 | 2.4 ms |
 | `hpa-custom` | 4.7% | 12,040 | 1,230 | 0 | 2,671.8 | 127.5 s | 9/0 | 0 | 2.4 ms |
-| `ours-threshold` | 4.1% | 11,810 | 1,460 | 0 | 2,476.7 | 110.0 s | 8/0 | 0 | 2.5 ms |
+| `ours-threshold` | 4.1% | 11,810 | 1,460 | 0 | 2,476.7 | 117.5 s | 8/0 | 0 | 2.5 ms |
 | `ours-predictive` | 0.0% | 13,515 | 270 | 575 | 2,585.1 | 30.0 s | 10/0 | 0 | 2.4 ms |
 | `ours-predictive-per-replica` | 0.0% | 12,900 | 885 | 515 | 2,475.9 | 87.5 s | 11/3 | 5 | 2.5 ms |
 | `ours-predictive-nostab` | 0.0% | 13,395 | 200 | 325 | 2,482.3 | 20.0 s | 16/7 | 12 | 2.5 ms |
