@@ -1,8 +1,8 @@
 # Thesis source (Persian, XeLaTeX)
 
 The written deliverable, on the official Amirkabir University of Technology
-`AUTthesis` class. Persian throughout; only code listings, figure axis labels and
-identifiers are English.
+`AUTthesis` class. Persian throughout, figures included; only code listings and
+identifiers (arm names, metric names) are English.
 
 ## Building
 
@@ -21,8 +21,29 @@ For the index (`\printindex`), run `makeindex AUTthesis` between passes.
 TeX Live is installed through Homebrew (`brew install texlive`), so `xelatex`
 and `bibtex` are on the path.
 
-**Last built clean**: 119 pages, A4, 0 errors, 0 undefined references or
+**Last built clean**: 120 pages, A4, 0 errors, 0 undefined references or
 citations, 4 overfull boxes (worst 8.4pt, under 2% of the line width).
+
+## Figures
+
+`figures/*.pdf` are generated, not drawn by hand:
+
+```
+sim/.venv/bin/python experiments/thesis_figures.py
+```
+
+from the repository root. They are separate from `experiments/analyze.py`'s
+figures, which stay English and plot all nine arms, for two reasons:
+
+- **Pinned runs.** `analyze.py` plots the latest run per (pattern, arm), so a
+  new run silently changes its figures. `thesis_figures.py` takes `--as-of`
+  (default `20260814T000000Z`) and ignores anything recorded later, so the
+  figures come from the same 34 runs as the chapter 5 tables. Move the cutoff
+  only when the tables move with it.
+- **Persian labels, in B Nazanin at print size.** Matplotlib 3.11 shapes and
+  orders Persian itself; do not add `arabic_reshaper`/`python-bidi`, which
+  reverse the text a second time. Latin glyphs, and the `٪` sign B Nazanin
+  lacks, fall back to Times New Roman.
 
 ## Fonts
 

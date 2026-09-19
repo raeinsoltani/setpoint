@@ -154,13 +154,14 @@
 \subsection{تحلیل به تفکیک بار کاری}
 \label{sec:results-perworkload}
 
-شکل‌های~\ref{fig:cmp-diurnal} تا~\ref{fig:cmp-bursty} رفتار همه‌ی بازوها را در طول هر اجرا
-نشان می‌دهند. هر شکل سه بخش دارد: بار عرضه‌شده در برابر بار اندازه‌گیری‌شده، تعداد نمونه‌های
+شکل‌های~\ref{fig:cmp-diurnal} تا~\ref{fig:cmp-bursty} رفتار شش بازوی
+جدول~\ref{tab:results-headline} را در طول هر اجرا نشان می‌دهند. بازوهای آزمون حذفی در این
+شکل‌ها نیامده‌اند و در شکل~\ref{fig:ablation} کنار هم آمده‌اند. هر شکل سه بخش دارد: بار عرضه‌شده در برابر بار اندازه‌گیری‌شده، تعداد نمونه‌های
 آماده در برابر نیاز مرجع، و بار هر نمونه در برابر خط هدف و خط کیفیت خدمت.
 
 \begin{figure}[H]
 \centering
-\includegraphics[width=\linewidth]{figures/comparison-diurnal.png}
+\includegraphics[width=\linewidth]{figures/comparison-diurnal.pdf}
 \caption[مقایسه‌ی بازوها روی بار کاری \lr{diurnal}]{مقایسه‌ی بازوها روی \arm{diurnal}. نوار
 خاکستری دو سو، مرحله‌های گرم‌کردن و نشست است و در محاسبه‌ی سنجه‌ها وارد نمی‌شود.}
 \label{fig:cmp-diurnal}
@@ -177,9 +178,8 @@
 
 \begin{figure}[H]
 \centering
-\includegraphics[width=\linewidth]{figures/comparison-ramp.png}
-\caption[مقایسه‌ی بازوها روی بار کاری \lr{ramp}]{مقایسه‌ی بازوها روی \arm{ramp}. بازوی
-\arm{ours-predictive-per-replica-nostab} ناوگان خود را تا یک نمونه فرو می‌پاشاند.}
+\includegraphics[width=\linewidth]{figures/comparison-ramp.pdf}
+\caption[مقایسه‌ی بازوها روی بار کاری \lr{ramp}]{مقایسه‌ی بازوها روی \arm{ramp}.}
 \label{fig:cmp-ramp}
 \end{figure}
 
@@ -190,7 +190,7 @@
 
 \begin{figure}[H]
 \centering
-\includegraphics[width=\linewidth]{figures/comparison-spike.png}
+\includegraphics[width=\linewidth]{figures/comparison-spike.pdf}
 \caption[مقایسه‌ی بازوها روی بار کاری \lr{spike}]{مقایسه‌ی بازوها روی \arm{spike}.}
 \label{fig:cmp-spike}
 \end{figure}
@@ -203,7 +203,7 @@
 
 \begin{figure}[H]
 \centering
-\includegraphics[width=\linewidth]{figures/comparison-bursty.png}
+\includegraphics[width=\linewidth]{figures/comparison-bursty.pdf}
 \caption[مقایسه‌ی بازوها روی بار کاری \lr{bursty}]{مقایسه‌ی بازوها روی \arm{bursty}.}
 \label{fig:cmp-bursty}
 \end{figure}
@@ -363,6 +363,21 @@
 
 هر دو شاهد از کمیت‌هایی می‌آیند که مستقل از سری بار هر نمونه‌اند؛ محدودیتی که این سری در
 همین سه اجرا دارد در بخش~\ref{sec:validity-metricdiff} ثبت شده است.
+
+شکل~\ref{fig:ablation} هر چهار خانه‌ی این آزمون را روی \arm{spike} کنار هم می‌گذارد و هر دو
+شاهد را مستقیم نشان می‌دهد.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\linewidth]{figures/ablation-spike.pdf}
+\caption[آزمون حذفی میراگر روی بار کاری \lr{spike}]{آزمون حذفی میراگر روی \arm{spike}. ردیف
+بالا پیش‌بینی بار کل است و ردیف پایین پیش‌بینی بار هر نمونه؛ ستون راست با پنجره‌ی پایدارسازی
+۹۰ ثانیه‌ای است و ستون چپ بدون آن. خط خاکستری نازک، تعداد درخواستی کنترل‌گر
+(\code{spec.replicas}) است و خط رنگی، نمونه‌های آماده. در ستون راست دو سیاست نقض کیفیت خدمت
+یکسانی دارند. در خانه‌ی پایین چپ، کنترل‌گر تا ۱۱ نمونه درخواست می‌کند اما شمار نمونه‌های آماده
+هرگز از یک بالاتر نمی‌رود.}
+\label{fig:ablation}
+\end{figure}
 
 حال همین سیاست معیوب را با میراگر ۹۰ ثانیه‌ای بسنجید. روی \arm{ramp} نقض کیفیت خدمت برابر
 ۰/۰ درصد است و روی \arm{spike} برابر ۰/۶ درصد. یعنی \emph{از همه‌ی آزمون‌های کیفیت و هزینه‌ی
