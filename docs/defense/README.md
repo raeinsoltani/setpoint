@@ -18,7 +18,13 @@ slide cannot show a figure the thesis does not have. The formulas are typeset by
 XeLaTeX rather than typed into PowerPoint, because PowerPoint's fonts substitute square
 brackets for the ceiling brackets.
 
-## Two things that bite in RTL PowerPoint
+## Three things that bite in RTL PowerPoint
+
+- **One `fontFace` is not one font.** pptxgenjs writes the same typeface into a run's
+  `latin`, `ea` and `cs` slots, so a Latin word inside Persian text is requested from
+  B Nazanin, which has no Latin glyphs. PowerPoint on macOS substitutes and it looks
+  fine; Windows leaves blanks. `splitScriptFonts()` rewrites `latin` to Times New Roman
+  after the file is written, leaving `cs` as B Nazanin — `\lr{}` by another name.
 
 - **Paragraph direction is per-run.** pptxgenjs reads `rtlMode`/`align` from each run in
   a multi-run paragraph, not from the parent call. Miss it on one run and that paragraph

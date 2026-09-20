@@ -494,5 +494,33 @@ backup("جایگاه در کارهای پیشین", [
   "در این پروژه علت، حافظه‌ی پیش‌بینی‌کننده است و درمان، عوض کردن سیگنال — چون میراسازی همان چیزی است که مسئله را پنهان می‌کند.",
 ], ["پادالا و همکاران (۲۰۰۷) و علی‌الدین و همکاران (۲۰۱۲) نیز مقیاس‌گذاری را مسئله‌ی کنترل می‌بینند، اما پایداری سیگنالِ پیش‌بینی را بررسی نمی‌کنند."]);
 
+// pptxgenjs writes one typeface into all three script slots of every run, so a Latin
+// word inside Persian text is asked for from B Nazanin — which has no Latin glyphs at
+// all (docs/thesis/latex/README.md). PowerPoint on macOS substitutes silently and it
+// looks fine; Windows leaves blanks. OOXML already separates the cases: `latin` covers
+// Latin characters and `cs` covers complex script, so keep B Nazanin on `cs` and give
+// `latin` the thesis's Latin face. This is \lr{} by another name, applied everywhere.
+const JSZip = require("jszip");
+const fs = require("fs");
+
+async function splitScriptFonts(file) {
+  const zip = await JSZip.loadAsync(fs.readFileSync(file));
+  const parts = Object.keys(zip.files)
+    .filter((n) => /^ppt\/(slides|notesSlides|slideLayouts|slideMasters)\/[^/]+\.xml$/.test(n));
+  let runs = 0;
+  for (const name of parts) {
+    const xml = await zip.file(name).async("string");
+    const next = xml.replace(new RegExp(`<a:latin typeface="${FA}"`, "g"), () => {
+      runs += 1;
+      return `<a:latin typeface="${EN}"`;
+    });
+    if (next !== xml) zip.file(name, next);
+  }
+  fs.writeFileSync(file, await zip.generateAsync({ type: "nodebuffer", compression: "DEFLATE" }));
+  return runs;
+}
+
 const out = path.join(__dirname, "defense-slides.pptx");
-pres.writeFile({ fileName: out }).then(() => console.log("wrote " + out));
+pres.writeFile({ fileName: out })
+  .then(() => splitScriptFonts(out))
+  .then((n) => console.log(`wrote ${out} — Latin face split from Persian in ${n} run(s)`));
