@@ -25,8 +25,16 @@ const GOOD = "2A6099";
 const BAD = "C0392B";
 const RULE = "D7DEE5";
 
-const FA = "B Nazanin";
-const EN = "Times New Roman";
+// Not the thesis's B Nazanin: PowerPoint mis-places its ezafe kasra, so final ن renders
+// as ذ and final ل picks up a stray alef, on more than half the slides. The font is a
+// legacy build with 75 Arabic-block glyphs against Vazirmatn's 142, and no Office
+// setting repairs it. XeLaTeX shapes B Nazanin correctly, which is why the thesis is
+// unaffected and only the deck has to move.
+const FA = "Vazirmatn";
+// Vazirmatn is a sans face, so Latin runs pair with Arial rather than the thesis's
+// Times New Roman. Its own Latin coverage is 58 glyphs, short of the full set, so
+// splitScriptFonts() still has to hand Latin to a face that has it.
+const EN = "Arial";
 // Formulas are typeset by XeLaTeX (build.sh) and placed as images: PowerPoint's fonts
 // substitute the ceiling brackets with square ones, and these have to match the thesis.
 
@@ -53,11 +61,30 @@ const en = (text, o = {}) => ({ text, options: { fontFace: EN, ...o } });
 // pptxgenjs reads paragraph properties (direction, alignment) from each run, not from
 // the parent call, so a multi-run Persian paragraph loses its RTL direction and renders
 // back to front. Every run in an array has to carry them.
+// A run that holds no Persian at all -- a bare identifier or a Greek symbol -- is an
+// edge inside the paragraph, and the space beside it is dropped exactly as it is at a
+// string edge. iso() cannot see this: it works per string, and this string is all
+// Latin. Fencing the run itself keeps the space. Greek counts, which is why the
+// glossary's lambda sat flush against the word after it.
+const fence = (t) => (typeof t === "string" && t.trim() && !/[\u0600-\u06FF]/.test(t)
+  ? RLM + t + RLM : t);
+
 const rtlRuns = (items) => items.map((t, i) => {
   const o = typeof t === "string" ? {} : (t.options || {});
   return {
-    text: typeof t === "string" ? t : t.text,
+    text: fence(typeof t === "string" ? t : t.text),
     options: { fontFace: FA, rtlMode: true, align: "right", breakLine: i < items.length - 1, ...o },
+  };
+});
+
+// Same per-run properties, but one line: a run array that is a sentence rather than a
+// list. Without them the runs lay out back to front, which is how the symbol glossary
+// came to read right to left with its parentheses mirrored.
+const rtlInline = (items) => items.map((t) => {
+  const o = typeof t === "string" ? {} : (t.options || {});
+  return {
+    text: fence(typeof t === "string" ? t : t.text),
+    options: { fontFace: FA, rtlMode: true, align: "center", ...o },
   };
 });
 
@@ -73,9 +100,36 @@ const NOTES = (() => {
 })();
 let slideNo = 0;
 
+// PowerPoint drops the space between a Persian word and a Latin one when the Latin run
+// lands at the edge of a string: "\u0648\u0627\u0633\u0637 Kubernetes" renders as one word. A
+// RIGHT-TO-LEFT MARK on each side of the Latin token keeps it off the edge and the
+// space survives. Measured, not guessed: a no-break space does not help, and Persian
+// digits never had the problem. Applied to every string the deck emits, below.
+const RLM = "\u200F";
+const iso = (t) => (typeof t === "string" && /[\u0600-\u06FF]/.test(t)
+  // The token must not end on a dot: a sentence-final period swallowed into the fence
+  // becomes LTR and renders to the right of the identifier instead of closing the line.
+  ? t.replace(/[A-Za-z][A-Za-z0-9._-]*[A-Za-z0-9]|[A-Za-z]/g, (m) => RLM + m + RLM)
+      // A number that opens the string is an edge too, and eats the space after it:
+      // "\u06F8 \u0627\u062C\u0631\u0627" came out as one word. One mark after the digits restores it.
+      .replace(/^([\u06F0-\u06F9\d]+(?:[/.,][\u06F0-\u06F9\d]+)*\.?)/, (m) => m + RLM)
+  : t);
+const isoAny = (v) => {
+  if (typeof v === "string") return iso(v);
+  if (Array.isArray(v)) return v.map(isoAny);
+  if (v && typeof v === "object" && "text" in v) return { ...v, text: isoAny(v.text) };
+  return v;
+};
+
 function slide(dark = false) {
   const s = pres.addSlide();
   s.background = { color: dark ? DARK : LIGHT };
+  // One chokepoint, so no call site can forget: every string reaching the slide goes
+  // through iso() first.
+  const addText = s.addText.bind(s);
+  s.addText = (t, o) => addText(isoAny(t), o);
+  const addTable = s.addTable.bind(s);
+  s.addTable = (rows, o) => addTable(isoAny(rows), o);
   const note = NOTES[String(++slideNo)];
   if (note) s.addNotes(note);
   return s;
@@ -245,16 +299,16 @@ function stat(s, { x, y, w, value, label, color = GOOD, size = 44 }) {
     formula(s, it.img, { x, y: Y(2.5), w: it.fw, boxW: w });
     s.addText(it.note, fa({ x: x + 0.25, y: Y(3.25), w: w - 0.5, h: 1.0, fontSize: 16, color: MUTED, align: "center" }));
   });
-  s.addText([
-    { text: "λ ", options: { fontFace: EN } },
-    { text: "نرخ ورود درخواست‌ها، ", options: {} },
-    { text: "m ", options: { fontFace: EN } },
-    { text: "بار هر نمونه، ", options: {} },
-    { text: "r ", options: { fontFace: EN } },
-    { text: "تعداد نمونه‌ها، ", options: {} },
-    { text: "T ", options: { fontFace: EN } },
-    { text: "نرخ هدف هر نمونه (۱۰۰ درخواست بر ثانیه)", options: {} },
-  ], fa({ x: M, y: Y(4.75), w: W - 2 * M, h: 0.5, fontSize: 16, color: MUTED, align: "center" }));
+  s.addText(rtlInline([
+    { text: "λ", options: { fontFace: EN } },
+    { text: " نرخ ورود درخواست‌ها، ", options: {} },
+    { text: "m", options: { fontFace: EN } },
+    { text: " بار هر نمونه، ", options: {} },
+    { text: "r", options: { fontFace: EN } },
+    { text: " تعداد نمونه‌ها، ", options: {} },
+    { text: "T", options: { fontFace: EN } },
+    { text: " نرخ هدف هر نمونه، ۱۰۰ درخواست بر ثانیه", options: {} },
+  ]), fa({ x: M, y: Y(4.75), w: W - 2 * M, h: 0.5, fontSize: 16, color: MUTED, align: "center" }));
 }
 
 /* ------------------------------------------------- 6. the finding */
@@ -285,16 +339,19 @@ function stat(s, { x, y, w, value, label, color = GOOD, size = 44 }) {
 /* ------------------------------------------------- 7. why HPA is not unstable */
 {
   const s = slide();
-  title(s, "«پس چرا خودِ HPA ناپایدار نیست؟»");
+  // Written back to front on purpose: PowerPoint mirrors a guillemet pair that opens
+  // and closes the string, though not one inside a sentence (slide 15 is fine). Swapped
+  // here, it displays the right way round.
+  title(s, "»پس چرا خودِ HPA ناپایدار نیست؟«");
   card(s, {
     x: M, y: Y(1.55), w: W - 2 * M, h: 1.5, head: "پرسش درست، و پاسخش همان جبر است", headColor: GOOD,
     body: ["HPA هم روی سنجه‌ی هر نمونه کار می‌کند، اما هیچ عملگر حافظه‌داری میان تقسیم و ضرب ندارد: نسبت را در همان لحظه می‌خواند، پس r حذف می‌شود و بهره‌ی مسیر صفر می‌ماند."],
     size: 18,
   });
   const w = (W - 2 * M - 0.4) / 2;
-  card(s, { x: W - M - w, y: Y(3.25), w, h: 1.9, head: "دو محافظ دیگر HPA", headColor: INK,
+  card(s, { x: W - M - w, y: Y(3.25), w, h: 2.4, head: "دو محافظ دیگر HPA", headColor: INK,
     body: ["ناحیه‌ی مرده‌ی ۱۰ درصدی: تغییرات کوچک نادیده گرفته می‌شوند.", "پنجره‌ی پایدارسازی: پیش‌فرض ۳۰۰ ثانیه برای مقیاس به پایین و صفر برای بالا."], size: 16 });
-  card(s, { x: M, y: Y(3.25), w, h: 1.9, head: "و نکته‌ی ظریف", headColor: BAD,
+  card(s, { x: M, y: Y(3.25), w, h: 2.4, head: "و نکته‌ی ظریف", headColor: BAD,
     body: ["همین محافظ‌ها هستند که در ارزیابی، یک قانون کنترل معیوب را هم سالم نشان می‌دهند — پرسش دوم همین است."], size: 16 });
 }
 
@@ -311,7 +368,7 @@ function stat(s, { x, y, w, value, label, color = GOOD, size = 44 }) {
   const sw = (W - 2 * M - 1.2) / 4;
   stats.forEach((st, i) => stat(s, { x: W - M - sw - i * (sw + 0.4), y: Y(1.6), w: sw, value: st.v, label: st.l }));
   card(s, {
-    x: M, y: Y(3.35), w: W - 2 * M, h: 2.1, head: "چارچوب آزمایش، نه فقط اجرای بار", headColor: GOOD,
+    x: M, y: Y(3.35), w: W - 2 * M, h: 2.5, head: "چارچوب آزمایش، نه فقط اجرای بار", headColor: GOOD,
     body: [
       "هر اجرا: برچیدن کنترل‌گرها ← اعمال دقیقاً یک بازو ← بازنشانی ناوگان ← گرم‌کردن ← اندازه‌گیری ← نشست ← ثبت سری‌ها ← بررسی اعتبار.",
       "اثرانگشت تصویر پیش از هر اجرا مقابله می‌شود؛ اجرای معیوب با ثبت دلیل کنار گذاشته می‌شود.",
