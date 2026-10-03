@@ -9,6 +9,11 @@
 `slides.js` is the source; the `.pptx` and `img/` are generated and untracked, the
 same arrangement as the thesis PDF.
 
+Speaker notes live in `speaker-notes.json`, keyed by slide number in build order, and
+are untracked too: they are delivery cues — what to stress, what to concede, what the
+examiner is likely to ask — rather than part of the deliverable. `slides.js` attaches
+them in `slide()` if the file is there, so a clone builds the same deck without notes.
+
 ## Where the content comes from
 
 Every number on a slide is in the thesis or in `experiments/results/metrics.csv`.
@@ -46,5 +51,5 @@ end tell'
 pdftoppm -jpeg -r 100 /tmp/qa.pdf /tmp/qa   # then look at every slide
 ```
 
-Speaker notes are on each slide; the backup slides cover the dead-band asymmetry, the
+All twenty slides carry notes; the backup slides cover the dead-band asymmetry, the
 load-delivery defect, the cold burst, and the position against Lim et al.

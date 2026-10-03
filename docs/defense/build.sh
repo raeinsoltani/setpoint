@@ -12,8 +12,9 @@ IMG="${SLIDE_IMG_DIR:-img}"
 mkdir -p "$IMG" && tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT
 
-for f in comparison-spike ablation-spike; do
-  pdftoppm -png -r 200 "../thesis/latex/figures/$f.pdf" "$IMG/${f/comparison-/cmp-}"
+# thesis figure : image prefix slides.js asks for. pdftoppm appends -1 for page one.
+for pair in comparison-spike:cmp-spike ablation-spike:ablation; do
+  pdftoppm -png -r 200 "../thesis/latex/figures/${pair%%:*}.pdf" "$IMG/${pair##*:}"
 done
 
 mkf() { # name bg fg body

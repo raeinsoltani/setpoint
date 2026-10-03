@@ -61,9 +61,23 @@ const rtlRuns = (items) => items.map((t, i) => {
   };
 });
 
+// Speaker notes are personal delivery cues, not part of the deliverable, so they live
+// in speaker-notes.json, which is untracked. Keyed by slide number in build order; a
+// missing file just means a deck with no notes, which is what a clone gets.
+const NOTES = (() => {
+  try {
+    return JSON.parse(require("fs").readFileSync(path.join(__dirname, "speaker-notes.json"), "utf8"));
+  } catch (e) {
+    return {};
+  }
+})();
+let slideNo = 0;
+
 function slide(dark = false) {
   const s = pres.addSlide();
   s.background = { color: dark ? DARK : LIGHT };
+  const note = NOTES[String(++slideNo)];
+  if (note) s.addNotes(note);
   return s;
 }
 
@@ -131,7 +145,6 @@ function stat(s, { x, y, w, value, label, color = GOOD, size = 44 }) {
   ]), fa({ x: M, y: 4.3, w: 6, h: 1.4, fontSize: 18, color: "E4EAF0", lineSpacingMultiple: 1.4 }));
 
   s.addText(rtlRuns(["دانشکده مهندسی کامپیوتر", "دانشگاه صنعتی امیرکبیر", "مهر ۱۴۰۵"]), fa({ x: W - M - 5, y: 4.3, w: 5, h: 1.4, fontSize: 18, color: "9FB3C8", lineSpacingMultiple: 1.4 }));
-  s.addNotes("سلام و معرفی. عنوان پروژه، و اینکه یافته‌ی اصلی درباره‌ی پایداری حلقه است نه خود مقیاس‌گذار.");
 }
 
 /* ------------------------------------------------- 2. problem */
@@ -159,7 +172,6 @@ function stat(s, { x, y, w, value, label, color = GOOD, size = 44 }) {
       "این پروژه همین راه حل را پیاده کرد — و دقیقاً همین‌جا به یافته‌ی اصلی رسید."],
     size: 19,
   });
-  s.addNotes("دو ضعف HPA. راه حل متعارف پیش‌بینی است. پروژه همین را ساخت و در ارزیابی به مسئله‌ی پایداری رسید.");
 }
 
 /* ------------------------------------------------- 3. research questions */
@@ -177,7 +189,6 @@ function stat(s, { x, y, w, value, label, color = GOOD, size = 44 }) {
     s.addText(n, fa({ x: W - M - 0.85, y: y + 0.12, w: 0.85, h: 0.6, fontSize: 26, bold: true, color: "FFFFFF", align: "center" }));
     s.addText(q, fa({ x: M, y: y + 0.12, w: W - 2 * M - 1.2, h: 0.7, fontSize: 22 }));
   });
-  s.addNotes("سه پرسش. پرسش دوم به نتیجه‌ی اصلی تبدیل شد.");
 }
 
 /* ------------------------------------------------- 4. architecture */
@@ -216,7 +227,6 @@ function stat(s, { x, y, w, value, label, color = GOOD, size = 44 }) {
     body: ["هر مرحله یک واسط با دست‌کم دو پیاده‌سازی است: سیگنال، سیاست، و اعمال. سیاست از فایل پیکربندی می‌آید و کد تغییر نمی‌کند."],
     size: 17,
   });
-  s.addNotes("معماری سه دغدغه‌ی مستقل: خواندن سیگنال، تصمیم، اعمال. نکته‌ی مهم: خروجی روی ناوگان، سیگنال ورودی را جابه‌جا می‌کند.");
 }
 
 /* ------------------------------------------------- 5. three policies */
@@ -245,7 +255,6 @@ function stat(s, { x, y, w, value, label, color = GOOD, size = 44 }) {
     { text: "T ", options: { fontFace: EN } },
     { text: "نرخ هدف هر نمونه (۱۰۰ درخواست بر ثانیه)", options: {} },
   ], fa({ x: M, y: Y(4.75), w: W - 2 * M, h: 0.5, fontSize: 16, color: MUTED, align: "center" }));
-  s.addNotes("سیاست سوم آن چیزی است که شهود می‌گوید درست است: بار هر نمونه را پیش‌بینی کن. همین معیوب است.");
 }
 
 /* ------------------------------------------------- 6. the finding */
@@ -271,7 +280,6 @@ function stat(s, { x, y, w, value, label, color = GOOD, size = 44 }) {
     ],
     size: 18,
   });
-  s.addNotes("این اسلاید قلب دفاع است. جبر را روی تخته هم می‌توان نوشت: r در فرمول پایه حذف می‌شود؛ حافظه‌ی پیش‌بینی‌کننده این حذف را می‌شکند.");
 }
 
 /* ------------------------------------------------- 7. why HPA is not unstable */
@@ -288,7 +296,6 @@ function stat(s, { x, y, w, value, label, color = GOOD, size = 44 }) {
     body: ["ناحیه‌ی مرده‌ی ۱۰ درصدی: تغییرات کوچک نادیده گرفته می‌شوند.", "پنجره‌ی پایدارسازی: پیش‌فرض ۳۰۰ ثانیه برای مقیاس به پایین و صفر برای بالا."], size: 16 });
   card(s, { x: M, y: Y(3.25), w, h: 1.9, head: "و نکته‌ی ظریف", headColor: BAD,
     body: ["همین محافظ‌ها هستند که در ارزیابی، یک قانون کنترل معیوب را هم سالم نشان می‌دهند — پرسش دوم همین است."], size: 16 });
-  s.addNotes("این پرسشی است که داور می‌پرسد. پاسخ: عملگر حافظه‌دار. بعد پل بزن به آزمون حذفی.");
 }
 
 /* ------------------------------------------------- 8. method */
@@ -312,7 +319,6 @@ function stat(s, { x, y, w, value, label, color = GOOD, size = 44 }) {
     ],
     size: 17,
   });
-  s.addNotes("تأکید: بیشترِ کارِ چارچوب، گرفتنِ اجرای بی‌سروصدا خراب است. هر بررسی از یک شکستِ واقعی آمده.");
 }
 
 /* ------------------------------------------------- 9. comparative results */
@@ -341,7 +347,6 @@ function stat(s, { x, y, w, value, label, color = GOOD, size = 44 }) {
     fa({ x: M, y: Y(4.55), w: W - 2 * M, h: 0.4, fontSize: 14, color: MUTED }));
   card(s, { x: M, y: Y(5.05), w: W - 2 * M, h: 1.0, fill: "FFFFFF",
     body: [{ text: "در میان بازوهای خودکار، کم‌ترین کم‌تأمین روی هر چهار الگو و کم‌ترین یا هم‌تراز کم‌ترین نقض — و زمان واکنش ۲۷/۵ ثانیه در برابر ۱۱۲/۵ ثانیه روی الگوی روزانه.", options: { bold: true } }], size: 17 });
-  s.addNotes("خط اصلی: در میان بازوهای خودکار برنده‌ایم، اما این برتری مطلق نیست — اسلاید مبادله.");
 }
 
 /* ------------------------------------------------- 10. comparison figure */
@@ -354,7 +359,6 @@ function stat(s, { x, y, w, value, label, color = GOOD, size = 44 }) {
     body: ["بالا: بار عرضه‌شده در برابر اندازه‌گیری‌شده.", "میانه: نمونه‌های آماده در برابر نیاز مرجع.", "پایین: بار هر نمونه در برابر هدف و حد کیفیت خدمت."], size: 15 });
   card(s, { x: M, y: Y(4.9), w: 3.05, h: 1.6, fill: "FFFFFF",
     body: ["نوار خاکستری دو سو، گرم‌کردن و نشست است و در سنجه‌ها وارد نمی‌شود."], size: 15 });
-  s.addNotes("نشان بده که همه‌ی بازوهای سالم پله را دنبال می‌کنند؛ تفاوت در سرعت و در کم‌تأمین است.");
 }
 
 /* ------------------------------------------------- 11. ablation */
@@ -367,7 +371,6 @@ function stat(s, { x, y, w, value, label, color = GOOD, size = 44 }) {
   stat(s, { x: M, y: Y(3.1), w: 3.6, value: "۵۰/۸٪", label: "نقض کیفیت خدمت", color: BAD, size: 52 });
   card(s, { x: M, y: Y(4.6), w: 3.6, h: 1.5, fill: "FFFFFF",
     body: ["۶۰ بالا و ۶۰ پایین: نوسان دیگر یک گرایش نیست، نقطه‌ی ثابتِ سامانه است."], size: 16 });
-  s.addNotes("ستون راست با میراگر، چپ بدون آن. با میراگر هر دو سیاست یکسان به نظر می‌رسند — این کل نکته است.");
 }
 
 /* ------------------------------------------------- 12. the masking claim */
@@ -382,7 +385,6 @@ function stat(s, { x, y, w, value, label, color = GOOD, size = 44 }) {
     body: [{ text: "نقض روی شیب: ۰/۰٪", options: { color: "FFFFFF" } }, { text: "نقض روی جهشی: ۰/۶٪", options: { color: "FFFFFF" } }, { text: "روی الگوی روزانه حتی ارزان‌تر از سیاست درست", options: { color: "C7D4E0" } }], size: 18 });
   card(s, { x: M, y: Y(3.45), w, h: 2.2, head: "بدون میراگر", headColor: "F0A9A2", fill: "27374A",
     body: [{ text: "نقض: ۳۳ تا ۵۱٪", options: { color: "FFFFFF" } }, { text: "تغییر جهت: ۹۸ تا ۱۱۹ از ۱۲۰", options: { color: "FFFFFF" } }, { text: "۱۹ تا ۴۱٪ درخواست‌ها ناموفق", options: { color: "F3C9C4" } }], size: 18 });
-  s.addNotes("همان سیاست، همان بار، تنها یک پارامتر عوض شده. میراگر اصلاح نیست، پوشاندن است.");
 }
 
 /* ------------------------------------------------- 13. repeats */
@@ -408,7 +410,6 @@ function stat(s, { x, y, w, value, label, color = GOOD, size = 44 }) {
     body: ["امضای کنترل: تقریباً در هر چرخه یک تغییر جهت، زیر هر دو مدل تحویل بار.", "آسیب کاربر، با اختلاف چند صد برابری."], size: 16 });
   card(s, { x: M, y: Y(4.65), w, h: 1.7, head: "بازتولید نشد", headColor: BAD,
     body: ["فروپاشی کامل به یک نمونه، ویژگی همان اجرا بود.", "رقم نقض پراکنده است: ۳۳ تا ۵۱ درصد."], size: 16 });
-  s.addNotes("اینجا صادق باش: دو ادعا تعدیل شد و در متن هم تعدیل شده است. نتیجه‌ی اصلی دست‌نخورده ماند.");
 }
 
 /* ------------------------------------------------- 14. user harm */
@@ -424,7 +425,6 @@ function stat(s, { x, y, w, value, label, color = GOOD, size = 44 }) {
       "هیستوگرام برنامه تنها زمانی را می‌سنجد که درخواست درون گرداننده گذرانده است: درخواستی که شکست می‌خورد یا پیش از برنامه در صف می‌ماند، هرگز به آن نمی‌رسد.",
       { text: "درس روش‌شناختی: تأخیر را باید سمت کاربر سنجید. داده‌اش از ابتدا در خروجی k6 بود و خوانده نشده بود.", options: { bold: true } },
     ], size: 17 });
-  s.addNotes("این تازه‌ترین یافته است. اگر پرسیدند چرا در نسخه‌های قبلی نبود: داده بود، سنجه‌ی اشتباه گزارش می‌شد.");
 }
 
 /* ------------------------------------------------- 15. trade-off */
@@ -441,7 +441,6 @@ function stat(s, { x, y, w, value, label, color = GOOD, size = 44 }) {
       { text: "ادعای قابل دفاع: یک مبادله.", options: { bold: true } },
       "و یک نتیجه‌ی منفی نسبت به تصور رایج: پیش‌بینی به «جهش ناگهانی» کمک نمی‌کند. هیچ پیش‌بینی‌کننده‌ای پله‌ی آنی را از پیش نمی‌بیند؛ سود آن روی بارهای روندار و دوره‌ای است.",
     ], size: 17 });
-  s.addNotes("اگر داور بگوید static-peak بهتر است: بله، و در متن هم آمده. بحث بر سر هزینه است.");
 }
 
 /* ------------------------------------------------- 16. conclusion */
@@ -460,7 +459,6 @@ function stat(s, { x, y, w, value, label, color = GOOD, size = 44 }) {
     s.addText(t, fa({ x: M, y: y + 0.05, w: W - 2 * M - 1.1, h: 1.1, fontSize: 19, color: "E4EAF0" }));
   });
   s.addText("با تشکر — پرسش‌ها", fa({ x: M, y: Y(6.2), w: W - 2 * M, h: 0.6, fontSize: 24, bold: true, color: "FFFFFF", align: "center" }));
-  s.addNotes("سه جمله‌ی پایانی. جمله‌ی سوم همان چیزی است که می‌خواهی در ذهن داور بماند.");
 }
 
 /* ------------------------------------------- backup slides */
