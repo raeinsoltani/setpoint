@@ -1,6 +1,7 @@
 # Defense deck (Persian, RTL)
 
-`defense-slides.pptx` — 16 talk slides and 4 backup slides. Build it:
+`defense-slides.pptx` — 17 talk slides and 4 backup slides. Slide 16 sets up the live
+demo in [`demo/`](demo/README.md). Build it:
 
 ```
 ./build.sh          # needs node + pptxgenjs, xelatex, pdftoppm
@@ -51,5 +52,5 @@ end tell'
 pdftoppm -jpeg -r 100 /tmp/qa.pdf /tmp/qa   # then look at every slide
 ```
 
-All twenty slides carry notes; the backup slides cover the dead-band asymmetry, the
+All twenty-one slides carry notes; the backup slides cover the dead-band asymmetry, the
 load-delivery defect, the cold burst, and the position against Lim et al.

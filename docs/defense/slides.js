@@ -6,9 +6,10 @@
 // experiments/results/metrics.csv. Figures come from the thesis's own figure
 // pipeline (experiments/thesis_figures.py), rasterised to PNG.
 //
-// The talk is ~15 slides plus four backup slides for the questions the write-up
-// says are coming: the dead-band asymmetry, the load-delivery defect, the cold
-// burst, and where the finding sits in the literature.
+// The talk is ~15 slides, then the live demo's set-up slide (demo/README.md), the
+// conclusion, and four backup slides for the questions the write-up says are coming:
+// the dead-band asymmetry, the load-delivery defect, the cold burst, and where the
+// finding sits in the literature.
 
 const path = require("path");
 const pptxgen = require("pptxgenjs");
@@ -23,6 +24,9 @@ const INK = "1B2733";
 const MUTED = "5A6B7B";
 const GOOD = "2A6099";
 const BAD = "C0392B";
+// The demo's third controller: broken, but held still by the stabilizer. Amber because
+// the ticker and the demo dashboard draw the raw recommendation in amber.
+const AMBER = "B9770E";
 const RULE = "D7DEE5";
 
 // Not the thesis's B Nazanin: PowerPoint mis-places its ezafe kasra, so final ن renders
@@ -500,7 +504,34 @@ function stat(s, { x, y, w, value, label, color = GOOD, size = 44 }) {
     ], size: 17 });
 }
 
-/* ------------------------------------------------- 16. conclusion */
+/* ------------------------------------------------- 16. live demo */
+// The contract for the demo (docs/defense/demo/), stated before it runs: the room is
+// told what each controller will do, then watches it. 550 and 6 are the demo's setup,
+// not results; the outcomes are the thesis's, in words, with no new numbers.
+{
+  const s = slide();
+  title(s, "نمایش زنده: یک بار، سه کنترل‌گر، یک اختلال");
+  s.addText("بار ثابتِ ۵۵۰ درخواست بر ثانیه در سراسر نمایش؛ پاسخ درست ۶ نمونه است. تنها کنترل‌گر عوض می‌شود.",
+    fa({ x: M, y: Y(1.25), w: W - 2 * M, h: 0.5, fontSize: 19, color: MUTED }));
+  const w = (W - 2 * M - 0.8) / 3;
+  const acts = [
+    { head: "۱. پیش‌بینی بار کل", color: GOOD, body: ["بدون میراگر", { text: "در یک چرخه به ۶ بازمی‌گردد", options: { bold: true } }] },
+    { head: "۲. پیش‌بینی بار هر نمونه", color: BAD, body: ["بدون میراگر", { text: "در هر چرخه تغییر جهت می‌دهد", options: { bold: true } }] },
+    { head: "۳. همان سیاست معیوب", color: AMBER, body: ["با میراگر ۹۰ ثانیه‌ای", { text: "ناوگان آرام به نظر می‌رسد؛ توصیه‌ی خام همچنان معیوب است", options: { bold: true } }] },
+  ];
+  acts.forEach((a, i) => card(s, {
+    x: W - M - w - i * (w + 0.4), y: Y(2.0), w, h: 2.3, head: a.head, headColor: a.color, body: a.body, size: 17,
+  }));
+  card(s, {
+    x: M, y: Y(4.6), w: W - 2 * M, h: 1.15, fill: "FFFFFF",
+    body: [{ text: "اختلال: در هر پرده چهار نمونه را دستی حذف می‌کنم، همان اتفاقی که با از کار افتادن یک گره می‌افتد. ترافیک تغییری نمی‌کند.", options: { bold: true } }],
+    size: 18,
+  });
+  s.addText("همان تصاویری که پایان‌نامه با آن‌ها سنجیده شد؛ چیزی از نو ساخته نشده است.",
+    fa({ x: M, y: Y(5.95), w: W - 2 * M, h: 0.4, fontSize: 14, color: MUTED }));
+}
+
+/* ------------------------------------------------- 17. conclusion */
 {
   const s = slide(true);
   title(s, "جمع‌بندی", true);

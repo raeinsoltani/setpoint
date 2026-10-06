@@ -1683,3 +1683,55 @@ What this settles:
 Valid runs: 53 (was 49); 8 of them under v2. `results/` stays pinned at
 `--as-of 20260814T000000Z` (`make analyze`), because the thesis reports these as repeats,
 not replacements. Raw data for all runs is gitignored and exists only on this machine.
+
+### 11.21 Rehearsing the live demo: a fixed point, a kick, and a one-cycle signal transient — 2026-10-06
+
+Four rehearsals of the defense demo (`docs/defense/demo/`), on this machine, pinned image,
+contract v2. **These are demonstrations, not evaluation runs**: constant 550 req/s from
+`demo/load.js`, outside `run.sh`, n = 1–3 per observation, no warmup gate. None of it may
+be reported as a result; it is recorded because three things came out of it that a reader
+of the thesis — or an examiner watching the demo — can ask about.
+
+**1. At the correct fleet the broken policy does not oscillate.** Started at 6 pods under
+550 req/s, `predictive-per-replica` with no stabilizer made **0 moves in 13 cycles**.
+Per-pod load is constant (~92), so the EWMA trend is zero, and 0.92 of target is inside
+the 10% dead-band, so the HPA formula holds. Both policies share the fixed point; they
+differ in what a disturbance does next. Every oscillation figure in the thesis starts from
+a disturbance — the unit test's climb from one replica, the patterns' steps — so the
+thesis's wording ("under constant total load", ch. 5) is accurate, but the stillness is
+real and is now the first thing the demo shows. If asked "why did it sit at 6?": the
+equilibrium exists for both; stability is the response to leaving it.
+
+**2. After a kick (`.spec.replicas` 6 → 2 by hand, traffic unchanged):**
+
+| controller | response | rehearsals |
+|---|---|---|
+| `predictive`, stabilizer off | `2 → 6` in one decision, then holds; forecast 576 → 579 → 568 total | 3 of 3 timed kicks |
+| `predictive-per-replica`, stabilizer off | reverses every cycle, 1 ↔ 8–10 pods; 9 reversals / 10 moves, 6 / 7 | 2 of 2 |
+| `predictive-per-replica`, 90 s stabilizer | `2 → 10`, held 90 s while raw goes 1, 1, 2, 4, 5; then 10 → 6 → 8 | 2 of 2 |
+
+The per-replica forecaster predicts **0 req/s per pod** on every down-swing while the
+fleet serves 550 req/s. The masked act's mean fleet was 7.4–7.8 against 6 needed — a slow
+oscillation (one period observed per rehearsal) that reads as ordinary autoscaling.
+User-side failures during the broken act were 1.8–2.2% (≤ 6% on an up-swing cycle) and
+0.92–1.05% over a whole demo — **not comparable** to the 19–41% of the measured `spike`
+runs: at a constant 550, one warm pod carries ~500 req/s, so failures are in-flight
+requests on removed pods rather than missing capacity.
+
+**3. The total-load signal has a one-cycle transient after a sudden pod loss.** The policy
+reconstructs `total = metric × ready`. `ready` comes from the API and drops immediately;
+the metric's denominator, `count(up)`, changes only at the next 5 s scrape. A reconcile
+**4 s** after the kick read 76.8 × 2 = **154 req/s of a real 550**, the forecaster
+extrapolated a collapse, and the healthy policy went 7 → 2 → **1** → 7 before holding. With
+the reconcile **14 s** after the kick it went 2 → 6 directly. It is a property of the
+signal, not the control law — the loop returned within one cycle — but it is a second
+place, besides the per-replica forecast, where the controller's own action enters its
+measurement. The demo's `kick` now strikes just after a decision so every act gets the
+same full interval. **Open:** the same mismatch follows every controller-driven scale
+event (ready moves, `count(up)` lags), so it may contribute to the healthy unstabilized
+arm's 39–43 reversals on `spike` (§11.20). Not measured; do not claim it.
+
+**Operational:** the 1m rate window remembers the previous act. A masked controller
+started straight after the oscillating act moved 6 → 4 → 9 before any kick. `demo.sh`
+resets the fleet with the controller stopped and waits for three consecutive readings
+within 5% of 550/6 (~25 s here) before starting the next controller.
