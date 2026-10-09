@@ -39,6 +39,9 @@ const FA = "Vazirmatn";
 // Times New Roman. Its own Latin coverage is 58 glyphs, short of the full set, so
 // splitScriptFonts() still has to hand Latin to a face that has it.
 const EN = "Arial";
+// Symbols in Persian prose. Arial's lambda reads as the Persian digit eight, and Arial
+// does not place a combining hat over it; Cambria Math does both, and ships with Office.
+const MATH = "Cambria Math";
 // Formulas are typeset by XeLaTeX (build.sh) and placed as images: PowerPoint's fonts
 // substitute the ceiling brackets with square ones, and these have to match the thesis.
 
@@ -304,15 +307,26 @@ function stat(s, { x, y, w, value, label, color = GOOD, size = 44 }) {
     s.addText(it.note, fa({ x: x + 0.25, y: Y(3.25), w: w - 0.5, h: 1.0, fontSize: 16, color: MUTED, align: "center" }));
   });
   s.addText(rtlInline([
-    { text: "λ", options: { fontFace: EN } },
+    { text: "λ", options: { fontFace: MATH } },
     { text: " نرخ ورود درخواست‌ها، ", options: {} },
-    { text: "m", options: { fontFace: EN } },
+    { text: "m", options: { fontFace: MATH } },
     { text: " بار هر نمونه، ", options: {} },
-    { text: "r", options: { fontFace: EN } },
+    { text: "r", options: { fontFace: MATH } },
     { text: " تعداد نمونه‌ها، ", options: {} },
-    { text: "T", options: { fontFace: EN } },
+    { text: "T", options: { fontFace: MATH } },
     { text: " نرخ هدف هر نمونه، ۱۰۰ درخواست بر ثانیه", options: {} },
   ]), fa({ x: M, y: Y(4.75), w: W - 2 * M, h: 0.5, fontSize: 16, color: MUTED, align: "center" }));
+  // The middle and right formulas differ only by the hat, so the room has to be told
+  // what it means or the two read as the same policy.
+  // No punctuation touches the symbols: a comma beside a Latin run lands on the
+  // wrong side of it.
+  s.addText(rtlInline([
+    { text: "کلاه روی نماد یعنی مقدارِ پیش‌بینی‌شده‌ی آن برای ۴۵ ثانیه‌ی بعد، مثل ", options: {} },
+    { text: "λ\u0302", options: { fontFace: MATH } },
+    { text: " و ", options: {} },
+    { text: "m\u0302", options: { fontFace: MATH } },
+    { text: " در فرمول‌های بالا.", options: {} },
+  ]), fa({ x: M, y: Y(5.2), w: W - 2 * M, h: 0.5, fontSize: 16, color: MUTED, align: "center" }));
 }
 
 /* ------------------------------------------------- 6. the finding */
@@ -326,8 +340,13 @@ function stat(s, { x, y, w, value, label, color = GOOD, size = 44 }) {
 
   s.addText("با پیش‌بینیِ بار هر نمونه — ناپایدار", fa({ x: M, y: Y(1.5), w: 5.6, h: 0.45, fontSize: 19, bold: true, color: "F0A9A2" }));
   formula(s, "f-broken", { x: M, y: Y(2.05), w: 5.1, boxW: 5.6, align: "right" });
-  s.addText("پیش‌بینی‌کننده یک عملگر حافظه‌دار میان تقسیم و ضرب است؛ شمارِ نمونه‌های گذشته با شمارِ جاری حذف نمی‌شود.",
-    fa({ x: M, y: Y(2.6), w: 5.6, h: 0.9, fontSize: 17, color: "F3C9C4" }));
+  // k and f appear only in this formula, so they are defined here rather than on slide 5.
+  s.addText(rtlInline([
+    { text: "k", options: { fontFace: MATH, align: "right" } },
+    { text: " شماره‌ی چرخه‌ی کنترل است و ", options: { align: "right" } },
+    { text: "f", options: { fontFace: MATH, align: "right" } },
+    { text: " پیش‌بینی‌کننده: یک عملگر حافظه‌دار میان تقسیم و ضرب. شمارِ نمونه‌های گذشته با شمارِ جاری حذف نمی‌شود.", options: { align: "right" } },
+  ]), fa({ x: M, y: Y(2.6), w: 5.6, h: 0.9, fontSize: 17, color: "F3C9C4" }));
 
   card(s, {
     x: M, y: Y(3.75), w: W - 2 * M, h: 1.9, fill: "27374A",
