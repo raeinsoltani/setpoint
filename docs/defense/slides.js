@@ -608,13 +608,28 @@ backup("جایگاه در کارهای پیشین", [
 const JSZip = require("jszip");
 const fs = require("fs");
 
+// pptxgenjs writes a note as one left-to-right paragraph with raw line breaks inside it.
+// In Presenter View that left-aligns every Persian line and puts its full stop at the
+// wrong end, so each line becomes its own right-to-left paragraph instead.
+const NOTE_BODY = /<a:p><a:r><a:rPr lang="en-US" dirty="0"\/><a:t>([^<]*)<\/a:t><\/a:r><a:endParaRPr lang="en-US" dirty="0"\/><\/a:p>/;
+function rtlNoteParagraphs(xml) {
+  return xml.replace(NOTE_BODY, (_, text) => text.split(/\r?\n/).map((line) => (line
+    ? `<a:p><a:pPr algn="r" rtl="1"/><a:r><a:rPr lang="fa-IR"><a:latin typeface="${EN}"/><a:cs typeface="${FA}"/></a:rPr><a:t>${line}</a:t></a:r></a:p>`
+    : `<a:p><a:pPr algn="r" rtl="1"/><a:endParaRPr lang="fa-IR"/></a:p>`)).join(""));
+}
+
 async function splitScriptFonts(file) {
   const zip = await JSZip.loadAsync(fs.readFileSync(file));
   const parts = Object.keys(zip.files)
     .filter((n) => /^ppt\/(slides|notesSlides|slideLayouts|slideMasters)\/[^/]+\.xml$/.test(n));
   let runs = 0;
   for (const name of parts) {
-    const xml = await zip.file(name).async("string");
+    let xml = await zip.file(name).async("string");
+    if (name.startsWith("ppt/notesSlides/")) {
+      const rtl = rtlNoteParagraphs(xml);
+      if (rtl !== xml) zip.file(name, rtl);
+      xml = rtl;
+    }
     const next = xml.replace(new RegExp(`<a:latin typeface="${FA}"`, "g"), () => {
       runs += 1;
       return `<a:latin typeface="${EN}"`;
