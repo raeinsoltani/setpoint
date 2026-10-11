@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Build the defense deck: figures, formulas, then the .pptx.
 #
-#   ./build.sh            # needs node with pptxgenjs, xelatex, pdftoppm, pdftocairo
+#   ./build.sh            # needs node, npm, xelatex, pdftoppm, pdftocairo
 #
 # Figures come from the thesis's own pipeline, so a slide can never show a figure the
 # thesis does not. Formulas are typeset by XeLaTeX because PowerPoint substitutes the
@@ -37,4 +37,6 @@ mkf f-perreplica FFFFFF C0392B 'd = \left\lceil r \cdot \hat{m} / T \right\rceil
 mkf f-cancel     1E2A38 FFFFFF 'd = \left\lceil r \cdot (\lambda / r) / T \right\rceil = \left\lceil \lambda / T \right\rceil'
 mkf f-broken     1E2A38 FFFFFF 'd = \left\lceil r_k \cdot f(m_{k-1}, m_{k-2}, \ldots) / T \right\rceil'
 
+# pptxgenjs and jszip are pinned in package.json; the first build installs them here.
+[ -d node_modules ] || npm ci --no-audit --no-fund
 SLIDE_IMG_DIR="$IMG" node slides.js

@@ -1,0 +1,9 @@
+{
+  "name": "setpoint-defense-deck",
+  "private": true,
+  "description": "Builds defense-slides.pptx from slides.js; see build.sh.",
+  "dependencies": {
+    "jszip": "3.10.2",
+    "pptxgenjs": "4.0.1"
+  }
+}

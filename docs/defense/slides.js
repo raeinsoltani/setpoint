@@ -1,6 +1,6 @@
 // Defense slides (Persian, RTL). Generates docs/defense/defense-slides.pptx.
 //
-//   cd docs/defense && NODE_PATH=<dir with pptxgenjs> node slides.js
+//   cd docs/defense && ./build.sh    (installs pptxgenjs from package.json on first run)
 //
 // Content mirrors the thesis: every number here appears in docs/thesis/latex or
 // experiments/results/metrics.csv. Figures come from the thesis's own figure

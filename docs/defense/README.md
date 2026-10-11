@@ -4,7 +4,7 @@
 demo in [`demo/`](demo/README.md). Build it:
 
 ```
-./build.sh          # needs node + pptxgenjs, xelatex, pdftoppm
+./build.sh          # needs node 22.12+, npm, xelatex, pdftoppm
 ```
 
 `slides.js` is the source; the `.pptx` and `img/` are generated and untracked, the

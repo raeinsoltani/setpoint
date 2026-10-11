@@ -49,6 +49,7 @@ experiments/results/logs/
 # Defense deck build products — docs/defense/build.sh regenerates both from the thesis
 # figures and slides.js, the same way the thesis PDF is left untracked.
 docs/defense/img/
+docs/defense/node_modules/
 
 # Speaker notes for the defense deck: personal delivery cues (what to stress, what to
 # concede, what the examiner is likely to ask), not part of the thesis deliverable.
