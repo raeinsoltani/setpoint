@@ -7,7 +7,8 @@
 // pipeline (experiments/thesis_figures.py), rasterised to PNG.
 //
 // The talk is ~15 slides, then the live demo's set-up slide (demo/README.md), the
-// conclusion, and four backup slides for the questions the write-up says are coming:
+// conclusion, a thanks-and-questions page, and four backup slides for the questions
+// the write-up says are coming:
 // the dead-band asymmetry, the load-delivery defect, the cold burst, and where the
 // finding sits in the literature.
 
@@ -630,7 +631,19 @@ function stat(s, { x, y, w, value, label, color = GOOD, size = 44 }) {
     s.addText(n, fa({ x: W - M - 0.8, y: y + 0.1, w: 0.8, h: 0.55, fontSize: 24, bold: true, color: "FFFFFF", align: "center" }));
     s.addText(t, fa({ x: M, y: y + 0.05, w: W - 2 * M - 1.1, h: 1.1, fontSize: 19, color: "E4EAF0" }));
   });
-  s.addText("با تشکر — پرسش‌ها", fa({ x: M, y: Y(6.2), w: W - 2 * M, h: 0.6, fontSize: 24, bold: true, color: "FFFFFF", align: "center" }));
+}
+
+/* ------------------------------------------------- 18. thanks and questions */
+// Its own page, so the conclusion is off screen once the questions start and the
+// backup slides come after it.
+{
+  const s = slide(true);
+  s.addText("با تشکر از توجه شما", fa({
+    x: M, y: 2.55, w: W - 2 * M, h: 1.0, fontSize: 44, bold: true, color: "FFFFFF", align: "center",
+  }));
+  s.addText("پرسش‌ها", fa({
+    x: M, y: 3.75, w: W - 2 * M, h: 0.7, fontSize: 28, color: "9FB3C8", align: "center",
+  }));
 }
 
 /* ------------------------------------------- backup slides */
