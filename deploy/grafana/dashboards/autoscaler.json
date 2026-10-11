@@ -80,25 +80,25 @@
         {
           "refId": "A",
           "datasource": { "type": "prometheus", "uid": "${datasource}" },
-          "expr": "autoscaler_raw_recommendation",
+          "expr": "max(autoscaler_raw_recommendation)",
           "legendFormat": "raw recommendation"
         },
         {
           "refId": "B",
           "datasource": { "type": "prometheus", "uid": "${datasource}" },
-          "expr": "autoscaler_desired_replicas",
+          "expr": "max(autoscaler_desired_replicas)",
           "legendFormat": "desired (after stabilization)"
         },
         {
           "refId": "C",
           "datasource": { "type": "prometheus", "uid": "${datasource}" },
-          "expr": "autoscaler_current_replicas",
+          "expr": "max(autoscaler_current_replicas)",
           "legendFormat": "requested (.spec.replicas)"
         },
         {
           "refId": "D",
           "datasource": { "type": "prometheus", "uid": "${datasource}" },
-          "expr": "autoscaler_ready_replicas",
+          "expr": "max(autoscaler_ready_replicas)",
           "legendFormat": "ready (.status.readyReplicas)"
         }
       ]
@@ -148,25 +148,25 @@
         {
           "refId": "A",
           "datasource": { "type": "prometheus", "uid": "${datasource}" },
-          "expr": "autoscaler_metric_value",
+          "expr": "max(autoscaler_metric_value)",
           "legendFormat": "observed"
         },
         {
           "refId": "B",
           "datasource": { "type": "prometheus", "uid": "${datasource}" },
-          "expr": "autoscaler_predicted_value",
+          "expr": "max(autoscaler_predicted_value)",
           "legendFormat": "predicted"
         },
         {
           "refId": "C",
           "datasource": { "type": "prometheus", "uid": "${datasource}" },
-          "expr": "autoscaler_metric_target",
+          "expr": "max(autoscaler_metric_target)",
           "legendFormat": "target"
         },
         {
           "refId": "D",
           "datasource": { "type": "prometheus", "uid": "${datasource}" },
-          "expr": "autoscaler_metric_target * 1.1",
+          "expr": "max(autoscaler_metric_target) * 1.1",
           "legendFormat": "SLA limit (target +10%)"
         }
       ]
@@ -194,7 +194,7 @@
         {
           "refId": "A",
           "datasource": { "type": "prometheus", "uid": "${datasource}" },
-          "expr": "increase(autoscaler_scale_actions_total[1m])",
+          "expr": "sum by (direction) (increase(autoscaler_scale_actions_total[1m]))",
           "legendFormat": "{{direction}}"
         }
       ]
@@ -267,13 +267,13 @@
         {
           "refId": "B",
           "datasource": { "type": "prometheus", "uid": "${datasource}" },
-          "expr": "increase(autoscaler_collector_errors_total[5m])",
+          "expr": "sum(increase(autoscaler_collector_errors_total[5m]))",
           "legendFormat": "collector errors (5m)"
         },
         {
           "refId": "C",
           "datasource": { "type": "prometheus", "uid": "${datasource}" },
-          "expr": "increase(autoscaler_scaler_errors_total[5m])",
+          "expr": "sum(increase(autoscaler_scaler_errors_total[5m]))",
           "legendFormat": "scaler errors (5m)"
         }
       ]
