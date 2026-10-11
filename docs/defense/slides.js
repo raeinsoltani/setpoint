@@ -540,7 +540,21 @@ function stat(s, { x, y, w, value, label, color = GOOD, size = 44 }) {
   const s = slide();
   title(s, "رفتار بازوها روی بار جهشی");
   const cmpH = 5.9, cmpW = cmpH * (1260 / 1480);
-  s.addImage({ path: path.join(IMG, "cmp-spike-1.png"), x: (W - cmpW) / 2 + 1.7, y: 1.35, w: cmpW, h: cmpH });
+  const cmpX = (W - cmpW) / 2 + 1.7, cmpY = 1.35;
+  s.addImage({ path: path.join(IMG, "cmp-spike-1.png"), x: cmpX, y: cmpY, w: cmpW, h: cmpH });
+  // Nine arms share the figure, so an arrow marks the one the talk is about: our
+  // policy's blue line in the middle panel, at the overshoot just after the jump,
+  // where it rises before the other arms and a little past the need. Positions are
+  // pixels of the 1260 x 1480 image, so the arrow moves with it; they have to be
+  // re-read if the thesis figure is regenerated.
+  const px = (u, v) => [cmpX + (u / 1260) * cmpW, cmpY + (v / 1480) * cmpH];
+  const [tipX, tipY] = px(652, 546); // right corner of the overshoot
+  const tailX = W - M - 1.15;
+  const tailY = px(0, 488)[1]; // level with the gap between the top and middle panels
+  s.addShape(pres.ShapeType.line, {
+    x: tipX, y: tailY, w: tailX - tipX, h: tipY - tailY, flipV: true,
+    line: { color: GOOD, width: 2.25, beginArrowType: "triangle" },
+  });
   card(s, { x: M, y: Y(1.5), w: 3.05, h: 3.2, head: "سه بخش", headColor: GOOD,
     body: ["بالا: بار عرضه‌شده در برابر اندازه‌گیری‌شده.", "میانه: نمونه‌های آماده در برابر نیاز مرجع.", "پایین: بار هر نمونه در برابر هدف و حد کیفیت خدمت."], size: 15 });
   card(s, { x: M, y: Y(4.9), w: 3.05, h: 1.6, fill: "FFFFFF",
