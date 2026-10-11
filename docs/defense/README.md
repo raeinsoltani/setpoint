@@ -24,6 +24,10 @@ slide cannot show a figure the thesis does not have. The formulas are typeset by
 XeLaTeX rather than typed into PowerPoint, because PowerPoint's fonts substitute square
 brackets for the ceiling brackets.
 
+`logos/` holds the AUT and CEIT emblems for the title slide: the institutions' own
+text-free marks, trimmed and recoloured white for the dark background (AUT ships no
+white text-free version). The names sit in the slide's text, not in the images.
+
 ## Three things that bite in RTL PowerPoint
 
 - **One `fontFace` is not one font.** pptxgenjs writes the same typeface into a run's

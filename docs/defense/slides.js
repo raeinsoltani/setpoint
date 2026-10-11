@@ -221,23 +221,36 @@ function stat(s, { x, y, w, value, label, color = GOOD, size = 44 }) {
 /* ------------------------------------------------------------------ 1. title */
 {
   const s = slide(true);
+  // University, then faculty, reading from the right edge the title is aligned to. The
+  // emblems carry no lettering: the names are already in the block below. The CEIT mark
+  // is solid strokes and reads heavier than AUT's line work, so it sits a little smaller.
+  const aut = { h: 1.0, w: 1.0 * (855 / 900) };
+  const ceit = { h: 0.88, w: 0.88 * (878 / 900) };
+  const ly = 0.6, gap = 0.35;
+  s.addImage({ path: path.join(__dirname, "logos", "aut.png"), x: W - M - aut.w, y: ly, ...aut });
+  const rule = W - M - aut.w - gap;
+  s.addShape(pres.ShapeType.line, { x: rule, y: ly + 0.15, w: 0, h: aut.h - 0.3, line: { color: "4A5D72", width: 1 } });
+  s.addImage({ path: path.join(__dirname, "logos", "ceit.png"), x: rule - gap - ceit.w, y: ly + (aut.h - ceit.h) / 2, ...ceit });
+
+  // Everything else moves down by the emblems' row.
+  const dy = 0.5;
   s.addText("طراحی و پیاده‌سازی یک مقیاس‌گذار خودکار سفارشی", fa({
-    x: M, y: 1.5, w: W - 2 * M, h: 0.8, fontSize: 36, bold: true, color: "FFFFFF",
+    x: M, y: 1.5 + dy, w: W - 2 * M, h: 0.8, fontSize: 36, bold: true, color: "FFFFFF",
   }));
   s.addText("مبتنی بر معیارهای Prometheus برای ریزخدمت‌های ابری",
-    fa({ x: M, y: 2.3, w: W - 2 * M, h: 0.7, fontSize: 30, bold: true, color: "FFFFFF" }));
+    fa({ x: M, y: 2.3 + dy, w: W - 2 * M, h: 0.7, fontSize: 30, bold: true, color: "FFFFFF" }));
 
   s.addText("پایداری حلقه‌ی بسته در مقیاس‌گذاری پیش‌بینانه", fa({
-    x: M, y: 3.15, w: W - 2 * M, h: 0.5, fontSize: 20, color: "9FB3C8", italic: true,
+    x: M, y: 3.15 + dy, w: W - 2 * M, h: 0.5, fontSize: 20, color: "9FB3C8", italic: true,
   }));
 
   s.addText(rtlRuns([
     "ارائه‌دهنده — رائین سلطانی",
     "استاد راهنما — دکتر سید احمد جوادی",
     "استاد داور — دکتر حامد فربه",
-  ]), fa({ x: M, y: 4.3, w: 6, h: 1.4, fontSize: 18, color: "E4EAF0", lineSpacingMultiple: 1.4 }));
+  ]), fa({ x: M, y: 4.3 + dy, w: 6, h: 1.4, fontSize: 18, color: "E4EAF0", lineSpacingMultiple: 1.4 }));
 
-  s.addText(rtlRuns(["دانشکده مهندسی کامپیوتر", "دانشگاه صنعتی امیرکبیر", "مهر ۱۴۰۵"]), fa({ x: W - M - 5, y: 4.3, w: 5, h: 1.4, fontSize: 18, color: "9FB3C8", lineSpacingMultiple: 1.4 }));
+  s.addText(rtlRuns(["دانشکده مهندسی کامپیوتر", "دانشگاه صنعتی امیرکبیر", "مهر ۱۴۰۵"]), fa({ x: W - M - 5, y: 4.3 + dy, w: 5, h: 1.4, fontSize: 18, color: "9FB3C8", lineSpacingMultiple: 1.4 }));
 }
 
 /* ------------------------------------------------- 2. problem */
