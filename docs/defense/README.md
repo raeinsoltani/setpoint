@@ -1,7 +1,8 @@
 # Defense deck (Persian, RTL)
 
-`defense-slides.pptx` — 18 talk slides and 4 backup slides. Slide 16 sets up the live
-demo in [`demo/`](demo/README.md); slide 18 is the thanks-and-questions page. Build it:
+`defense-slides.pptx` — 19 talk slides and 4 backup slides. Slide 2 is a glossary of
+the terms the talk uses, slide 17 sets up the live demo in [`demo/`](demo/README.md), and
+slide 19 is the thanks-and-questions page. Build it:
 
 ```
 ./build.sh          # needs node 22.12+, npm, xelatex, pdftoppm
@@ -56,5 +57,5 @@ end tell'
 pdftoppm -jpeg -r 100 /tmp/qa.pdf /tmp/qa   # then look at every slide
 ```
 
-All twenty-two slides carry notes; the backup slides cover the dead-band asymmetry, the
+All twenty-three slides carry notes; the backup slides cover the dead-band asymmetry, the
 load-delivery defect, the cold burst, and the position against Lim et al.

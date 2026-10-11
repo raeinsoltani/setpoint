@@ -29,7 +29,7 @@ That stillness is also the answer to the question it raises: *"if it is unstable
 it sit at 6?"* Both policies share the same fixed point. They differ in what a change in
 `r` does next. In the total-load policy, `r` cancels and the kick never reaches the
 decision. In the per-replica policy, the kick reaches the forecaster as a trend and the
-horizon multiplies it (slide 6). The unit test's initial climb from one replica, and the
+horizon multiplies it (slide 7). The unit test's initial climb from one replica, and the
 measured patterns' steps, are the same kick by other means.
 
 ## What it looks like
@@ -69,7 +69,7 @@ policy's own recommendation (amber `┃`, and the dashed line in Grafana) crawls
 ```
 
 The fleet looks like ordinary autoscaling: a 15-second oscillation is now a slow one,
-and every check passes. Slide 12's sentence, in one frame.
+and every check passes. Slide 13's sentence, in one frame.
 
 **Why `kick` waits for a decision first.** The total-load policy rebuilds total load as
 `metric × ready`. `ready` drops the moment pods go, but the metric's denominator,

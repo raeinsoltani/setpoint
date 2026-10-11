@@ -6,7 +6,8 @@
 // experiments/results/metrics.csv. Figures come from the thesis's own figure
 // pipeline (experiments/thesis_figures.py), rasterised to PNG.
 //
-// The talk is ~15 slides, then the live demo's set-up slide (demo/README.md), the
+// A glossary follows the title. The talk is ~15 slides, then the live demo's set-up
+// slide (demo/README.md), the
 // conclusion, a thanks-and-questions page, and four backup slides for the questions
 // the write-up says are coming:
 // the dead-band asymmetry, the load-delivery defect, the cold burst, and where the
@@ -254,7 +255,44 @@ function stat(s, { x, y, w, value, label, color = GOOD, size = 44 }) {
   s.addText(rtlRuns(["دانشکده مهندسی کامپیوتر", "دانشگاه صنعتی امیرکبیر", "مهر ۱۴۰۵"]), fa({ x: W - M - 5, y: 4.3 + dy, w: 5, h: 1.4, fontSize: 18, color: "9FB3C8", lineSpacingMultiple: 1.4 }));
 }
 
-/* ------------------------------------------------- 2. problem */
+/* ------------------------------------------------- 2. glossary */
+// The terms the later slides use without stopping to define them, in the thesis's own
+// wording (its glossary and the metric definitions in chapter 4), so the room can
+// come back here instead of guessing.
+{
+  const s = slide();
+  title(s, "واژه‌نامه");
+  const terms = [
+    ["HPA", "Horizontal Pod Autoscaler", "مقیاس‌گذار خودکار پیش‌فرض Kubernetes"],
+    ["نمونه", "Replica", "یک نسخه‌ی در حال اجرای سرویس"],
+    ["ناوگان", "Fleet", "همه‌ی نمونه‌های یک سرویس"],
+    ["بازو", "Arm", "یکی از پیکربندی‌های مقایسه‌شده، مانند hpa-cpu"],
+    ["میراگر", "Damper", "هر سازوکاری که پاسخ کنترل‌گر را کند می‌کند تا نوسان کم شود"],
+    ["پنجره‌ی پایدارسازی", "Stabilization Window", "بازه‌ای که میراگر پیشنهادهای اخیر را در آن نگه می‌دارد"],
+    ["ناحیه‌ی مرده", "Dead-band", "انحراف کمتر از ۱۰٪ از هدف نادیده گرفته می‌شود"],
+    ["تغییر جهت", "Direction Reversal", "تغییر تعداد نمونه‌ها در خلاف جهت تغییر پیشین"],
+    ["نقض کیفیت خدمت", "SLA Violation", "درصد زمانی که بار هر نمونه از ۱۱۰ درخواست بر ثانیه فراتر رود"],
+    ["کم‌تأمین منابع", "Under-provisioning", "کمبود نمونه نسبت به نیاز، بر حسب نمونه-ثانیه"],
+    ["زمان واکنش", "Reaction Time", "میانه‌ی فاصله‌ی هر پله‌ی بار تا رسیدن ناوگان به نیاز"],
+    ["آزمون حذفی", "Ablation", "اجرای همان سیاست با میراگر خاموش"],
+  ];
+  const cell = (t, o = {}) => ({ text: t, options: { fontFace: FA, align: "right", rtlMode: true, ...o } });
+  // Columns read right to left: term, English, meaning. The arrays are written in that
+  // order and reversed, as on the results tables.
+  const head = ["واژه", "معادل انگلیسی", "معنا"];
+  const table = [head.slice().reverse().map((h) => cell(h, { bold: true, color: "FFFFFF", fill: { color: DARK }, fontSize: 14 }))]
+    .concat(terms.map(([fa_, en_, def]) => [
+      cell(def, { fontSize: 14 }),
+      cell(en_, { fontFace: EN, fontSize: 13, color: MUTED, align: "center", rtlMode: false }),
+      cell(fa_, { fontSize: 15, bold: true, color: GOOD }),
+    ]));
+  s.addTable(table, {
+    x: M, y: 1.5, w: W - 2 * M, colW: [6.6, 2.9, 2.6],
+    rowH: 0.41, border: { type: "solid", color: RULE, pt: 0.75 }, fill: { color: "FFFFFF" }, valign: "middle",
+  });
+}
+
+/* ------------------------------------------------- 3. problem */
 {
   const s = slide();
   title(s, "مقیاس‌گذار خودکار پیش‌فرض دو ضعف شناخته‌شده دارد");
@@ -281,7 +319,7 @@ function stat(s, { x, y, w, value, label, color = GOOD, size = 44 }) {
   });
 }
 
-/* ------------------------------------------------- 3. research questions */
+/* ------------------------------------------------- 4. research questions */
 {
   const s = slide();
   title(s, "پرسش‌های پژوهش");
@@ -298,7 +336,7 @@ function stat(s, { x, y, w, value, label, color = GOOD, size = 44 }) {
   });
 }
 
-/* ------------------------------------------------- 4. architecture */
+/* ------------------------------------------------- 5. architecture */
 {
   const s = slide();
   title(s, "معماری: یک حلقه‌ی کنترل بسته");
@@ -336,7 +374,7 @@ function stat(s, { x, y, w, value, label, color = GOOD, size = 44 }) {
   });
 }
 
-/* ------------------------------------------------- 5. three policies */
+/* ------------------------------------------------- 6. three policies */
 {
   const s = slide();
   title(s, "سه سیاست پیاده‌سازی شد");
@@ -375,7 +413,7 @@ function stat(s, { x, y, w, value, label, color = GOOD, size = 44 }) {
   ]), fa({ x: M, y: Y(5.2), w: W - 2 * M, h: 0.5, fontSize: 16, color: MUTED, align: "center" }));
 }
 
-/* ------------------------------------------------- 6. the finding */
+/* ------------------------------------------------- 7. the finding */
 {
   const s = slide(true);
   title(s, "یافته‌ی اصلی: حذف‌شدنِ r به هم می‌خورد", true);
@@ -386,7 +424,7 @@ function stat(s, { x, y, w, value, label, color = GOOD, size = 44 }) {
 
   s.addText("با پیش‌بینیِ بار هر نمونه — ناپایدار", fa({ x: M, y: Y(1.5), w: 5.6, h: 0.45, fontSize: 19, bold: true, color: "F0A9A2" }));
   formula(s, "f-broken", { x: M, y: Y(2.05), w: 5.1, boxW: 5.6, align: "right" });
-  // k and f appear only in this formula, so they are defined here rather than on slide 5.
+  // k and f appear only in this formula, so they are defined here rather than on slide 6.
   s.addText(rtlInline([
     { text: "k", options: { fontFace: MATH, align: "right" } },
     { text: " شماره‌ی چرخه‌ی کنترل است و ", options: { align: "right" } },
@@ -405,11 +443,11 @@ function stat(s, { x, y, w, value, label, color = GOOD, size = 44 }) {
   });
 }
 
-/* ------------------------------------------------- 7. why HPA is not unstable */
+/* ------------------------------------------------- 8. why HPA is not unstable */
 {
   const s = slide();
   // Written back to front on purpose: PowerPoint mirrors a guillemet pair that opens
-  // and closes the string, though not one inside a sentence (slide 15 is fine). Swapped
+  // and closes the string, though not one inside a sentence (slide 16 is fine). Swapped
   // here, it displays the right way round.
   title(s, "»پس چرا خودِ HPA ناپایدار نیست؟«");
   card(s, {
@@ -424,7 +462,7 @@ function stat(s, { x, y, w, value, label, color = GOOD, size = 44 }) {
     body: ["همین محافظ‌ها هستند که در ارزیابی، یک قانون کنترل معیوب را هم سالم نشان می‌دهند — پرسش دوم همین است."], size: 16 });
 }
 
-/* ------------------------------------------------- 8. method */
+/* ------------------------------------------------- 9. method */
 {
   const s = slide();
   title(s, "روش ارزیابی");
@@ -467,7 +505,7 @@ function stat(s, { x, y, w, value, label, color = GOOD, size = 44 }) {
   });
 }
 
-/* ------------------------------------------------- 9. comparative results */
+/* ------------------------------------------------- 10. comparative results */
 {
   const s = slide();
   title(s, "نتایج مقایسه‌ای: سیاست پیش‌بینانه‌ی درست");
@@ -495,7 +533,7 @@ function stat(s, { x, y, w, value, label, color = GOOD, size = 44 }) {
     body: [{ text: "در میان بازوهای خودکار، کم‌ترین کم‌تأمین روی هر چهار الگو و کم‌ترین یا هم‌تراز کم‌ترین نقض — و زمان واکنش ۲۷/۵ ثانیه در برابر ۱۱۲/۵ ثانیه روی الگوی روزانه.", options: { bold: true } }], size: 17 });
 }
 
-/* ------------------------------------------------- 10. comparison figure */
+/* ------------------------------------------------- 11. comparison figure */
 {
   const s = slide();
   title(s, "رفتار بازوها روی بار جهشی");
@@ -507,7 +545,7 @@ function stat(s, { x, y, w, value, label, color = GOOD, size = 44 }) {
     body: ["نوار خاکستری دو سو، گرم‌کردن و نشست است و در سنجه‌ها وارد نمی‌شود."], size: 15 });
 }
 
-/* ------------------------------------------------- 11. ablation */
+/* ------------------------------------------------- 12. ablation */
 {
   const s = slide();
   title(s, "آزمون حذفی: میراگر را خاموش کن");
@@ -519,7 +557,7 @@ function stat(s, { x, y, w, value, label, color = GOOD, size = 44 }) {
     body: ["۶۰ بالا و ۶۰ پایین: نوسان دیگر یک گرایش نیست، نقطه‌ی ثابتِ سامانه است."], size: 16 });
 }
 
-/* ------------------------------------------------- 12. the masking claim */
+/* ------------------------------------------------- 13. the masking claim */
 {
   const s = slide(true);
   title(s, "نتیجه‌ی اصلی", true);
@@ -533,7 +571,7 @@ function stat(s, { x, y, w, value, label, color = GOOD, size = 44 }) {
     body: [{ text: "نقض: ۳۳ تا ۵۱٪", options: { color: "FFFFFF" } }, { text: "تغییر جهت: ۹۸ تا ۱۱۹ از ۱۲۰", options: { color: "FFFFFF" } }, { text: "۱۹ تا ۴۱٪ درخواست‌ها ناموفق", options: { color: "F3C9C4" } }], size: 18 });
 }
 
-/* ------------------------------------------------- 13. repeats */
+/* ------------------------------------------------- 14. repeats */
 {
   const s = slide();
   title(s, "تکرارپذیری: چه چیزی بازتولید شد و چه چیزی نشد");
@@ -558,7 +596,7 @@ function stat(s, { x, y, w, value, label, color = GOOD, size = 44 }) {
     body: ["فروپاشی کامل به یک نمونه، ویژگی همان اجرا بود.", "رقم نقض پراکنده است: ۳۳ تا ۵۱ درصد."], size: 16 });
 }
 
-/* ------------------------------------------------- 14. user harm */
+/* ------------------------------------------------- 15. user harm */
 {
   const s = slide();
   title(s, "آسیب کاربر: آنچه هیستوگرام برنامه نمی‌دید");
@@ -573,7 +611,7 @@ function stat(s, { x, y, w, value, label, color = GOOD, size = 44 }) {
     ], size: 17 });
 }
 
-/* ------------------------------------------------- 15. trade-off */
+/* ------------------------------------------------- 16. trade-off */
 {
   const s = slide();
   title(s, "مبادله، نه برتری مطلق");
@@ -589,7 +627,7 @@ function stat(s, { x, y, w, value, label, color = GOOD, size = 44 }) {
     ], size: 17 });
 }
 
-/* ------------------------------------------------- 16. live demo */
+/* ------------------------------------------------- 17. live demo */
 // The contract for the demo (docs/defense/demo/), stated before it runs: the room is
 // told what each controller will do, then watches it. 550 and 6 are the demo's setup,
 // not results; the outcomes are the thesis's, in words, with no new numbers.
@@ -616,7 +654,7 @@ function stat(s, { x, y, w, value, label, color = GOOD, size = 44 }) {
     fa({ x: M, y: Y(5.95), w: W - 2 * M, h: 0.4, fontSize: 14, color: MUTED }));
 }
 
-/* ------------------------------------------------- 17. conclusion */
+/* ------------------------------------------------- 18. conclusion */
 {
   const s = slide(true);
   title(s, "جمع‌بندی", true);
@@ -633,7 +671,7 @@ function stat(s, { x, y, w, value, label, color = GOOD, size = 44 }) {
   });
 }
 
-/* ------------------------------------------------- 18. thanks and questions */
+/* ------------------------------------------------- 19. thanks and questions */
 // Its own page, so the conclusion is off screen once the questions start and the
 // backup slides come after it.
 {
