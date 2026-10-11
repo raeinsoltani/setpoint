@@ -22,9 +22,11 @@ mkf() { # name bg(unused: pages are transparent) fg body
 \documentclass[preview,border=3pt]{standalone}
 \usepackage{amsmath}\usepackage{xcolor}
 \definecolor{fgc}{HTML}{$3}
-\color{fgc}
-\begin{document}\$\displaystyle $4\$\end{document}
+\begin{document}\color{fgc}\$\displaystyle $4\$\end{document}
 EOF
+  # \color goes inside the document: set in the preamble it is dropped at
+  # \begin{document}, every formula comes out black, and the two on the dark slide
+  # vanish into the background.
   (cd "$tmp" && xelatex -interaction=nonstopmode -halt-on-error "$1.tex" >/dev/null)
   # pdftocairo, not pdftoppm: standalone's preview crop drops \pagecolor, so a tinted
   # page still renders white and a dark slide gets a white block behind the formula.
