@@ -121,7 +121,9 @@ const iso = (t) => (typeof t === "string" && /[\u0600-\u06FF]/.test(t)
   ? t.replace(/[A-Za-z][A-Za-z0-9._-]*[A-Za-z0-9]|[A-Za-z]/g, (m) => RLM + m + RLM)
       // A number that opens the string is an edge too, and eats the space after it:
       // "\u06F8 \u0627\u062C\u0631\u0627" came out as one word. One mark after the digits restores it.
-      .replace(/^([\u06F0-\u06F9\d]+(?:[/.,][\u06F0-\u06F9\d]+)*\.?)/, (m) => m + RLM)
+      // The Persian comma counts as part of the number: without it the mark landed
+      // inside "\u06F1\u060C\u06F0\u06F7\u06F0" and split it, so slide 10 read 0701 for 1,070.
+      .replace(/^([\u06F0-\u06F9\d]+(?:[/.,\u060C\u066C][\u06F0-\u06F9\d]+)*\.?)/, (m) => m + RLM)
   : t);
 const isoAny = (v) => {
   if (typeof v === "string") return iso(v);
@@ -451,14 +453,14 @@ function stat(s, { x, y, w, value, label, color = GOOD, size = 44 }) {
   // here, it displays the right way round.
   title(s, "»پس چرا خودِ HPA ناپایدار نیست؟«");
   card(s, {
-    x: M, y: Y(1.55), w: W - 2 * M, h: 1.5, head: "پرسش درست، و پاسخش همان جبر است", headColor: GOOD,
+    x: M, y: Y(1.55), w: W - 2 * M, h: 1.8, head: "پرسش درست، و پاسخش همان جبر است", headColor: GOOD,
     body: ["HPA هم روی سنجه‌ی هر نمونه کار می‌کند، اما هیچ عملگر حافظه‌داری میان تقسیم و ضرب ندارد: نسبت را در همان لحظه می‌خواند، پس r حذف می‌شود و بهره‌ی مسیر صفر می‌ماند."],
     size: 18,
   });
   const w = (W - 2 * M - 0.4) / 2;
-  card(s, { x: W - M - w, y: Y(3.25), w, h: 2.4, head: "دو محافظ دیگر HPA", headColor: INK,
+  card(s, { x: W - M - w, y: Y(3.55), w, h: 2.4, head: "دو محافظ دیگر HPA", headColor: INK,
     body: ["ناحیه‌ی مرده‌ی ۱۰ درصدی: تغییرات کوچک نادیده گرفته می‌شوند.", "پنجره‌ی پایدارسازی: پیش‌فرض ۳۰۰ ثانیه برای مقیاس به پایین و صفر برای بالا."], size: 16 });
-  card(s, { x: M, y: Y(3.25), w, h: 2.4, head: "و نکته‌ی ظریف", headColor: BAD,
+  card(s, { x: M, y: Y(3.55), w, h: 2.4, head: "و نکته‌ی ظریف", headColor: BAD,
     body: ["همین محافظ‌ها هستند که در ارزیابی، یک قانون کنترل معیوب را هم سالم نشان می‌دهند — پرسش دوم همین است."], size: 16 });
 }
 
@@ -581,18 +583,18 @@ function stat(s, { x, y, w, value, label, color = GOOD, size = 44 }) {
     ["اجرای اصلی", "۱۱۹", "۵۰/۸٪", "۱/۰۰", "۴۱/۰٪"],
     ["تکرار ۱", "۱۱۹", "۵۰/۴٪", "۴/۳۷", "۲۴/۵٪"],
     ["تکرار ۲", "۱۱۵", "۳۲/۹٪", "۴/۹۳", "۱۸/۶٪"],
-    ["بازوی سالم بی‌میراگر", "۴۳ / ۴۲ / ۳۹", "۴/۱ تا ۴/۷٪", "۶/۸", "حداکثر ۰/۰۵٪"],
+    ["بازوی سالم بی‌میراگر", "۴۳ و ۴۲ و ۳۹", "۴/۱ تا ۴/۷٪", "۶/۸", "حداکثر ۰/۰۵٪"],
   ];
   const table = [head.slice().reverse().map((h) => cell(h, { bold: true, color: "FFFFFF", fill: { color: DARK }, fontSize: 15 }))]
     .concat(rows.map((r, ri) => r.slice().reverse().map((t) => cell(t, {
       fontSize: 16, color: ri === 3 ? GOOD : INK, bold: ri === 3,
     }))));
-  s.addTable(table, { x: M, y: Y(1.65), w: W - 2 * M, colW: Array(5).fill((W - 2 * M) / 5), rowH: 0.55,
+  s.addTable(table, { x: M, y: Y(1.35), w: W - 2 * M, colW: Array(5).fill((W - 2 * M) / 5), rowH: 0.55,
     border: { type: "solid", color: RULE, pt: 0.75 }, fill: { color: "FFFFFF" }, valign: "middle" });
   const w = (W - 2 * M - 0.4) / 2;
-  card(s, { x: W - M - w, y: Y(4.65), w, h: 1.7, head: "بازتولید شد", headColor: GOOD,
+  card(s, { x: W - M - w, y: Y(4.35), w, h: 2.0, head: "بازتولید شد", headColor: GOOD,
     body: ["امضای کنترل: تقریباً در هر چرخه یک تغییر جهت، زیر هر دو مدل تحویل بار.", "آسیب کاربر، با اختلاف چند صد برابری."], size: 16 });
-  card(s, { x: M, y: Y(4.65), w, h: 1.7, head: "بازتولید نشد", headColor: BAD,
+  card(s, { x: M, y: Y(4.35), w, h: 2.0, head: "بازتولید نشد", headColor: BAD,
     body: ["فروپاشی کامل به یک نمونه، ویژگی همان اجرا بود.", "رقم نقض پراکنده است: ۳۳ تا ۵۱ درصد."], size: 16 });
 }
 
@@ -602,7 +604,7 @@ function stat(s, { x, y, w, value, label, color = GOOD, size = 44 }) {
   title(s, "آسیب کاربر: آنچه هیستوگرام برنامه نمی‌دید");
   const sw = (W - 2 * M - 0.8) / 3;
   stat(s, { x: W - M - sw, y: Y(1.7), w: sw, value: "۴۱٪", label: "درخواست ناموفق — بازوی معیوب", color: BAD, size: 50 });
-  stat(s, { x: W - M - 2 * sw - 0.4, y: Y(1.7), w: sw, value: "~۲ ث", label: "صدک ۹۵ سمت کاربر", color: BAD, size: 50 });
+  stat(s, { x: W - M - 2 * sw - 0.4, y: Y(1.7), w: sw, value: "۲ ثانیه", label: "صدک ۹۵ سمت کاربر، حدوداً", color: BAD, size: 50 });
   stat(s, { x: M, y: Y(1.7), w: sw, value: "۰/۰٪", label: "درخواست ناموفق — بازوهای سالم", color: GOOD, size: 50 });
   card(s, { x: M, y: Y(3.5), w: W - 2 * M, h: 2.2, head: "چرا دیده نمی‌شد", headColor: INK,
     body: [
@@ -685,12 +687,14 @@ function stat(s, { x, y, w, value, label, color = GOOD, size = 44 }) {
 }
 
 /* ------------------------------------------- backup slides */
-function backup(head, body, extra) {
+// `h` is the main card's height: a body that wraps to five lines needs more than the
+// default, or its last line falls out of the card.
+function backup(head, body, extra, h = 2.0) {
   const s = slide();
   s.addText("اسلاید پشتیبان", fa({ x: M, y: 0.3, w: W - 2 * M, h: 0.35, fontSize: 14, color: MUTED }));
   title(s, head);
-  card(s, { x: M, y: Y(1.7), w: W - 2 * M, h: 2.0, body, size: 18 });
-  if (extra) card(s, { x: M, y: Y(3.95), w: W - 2 * M, h: 1.45, fill: "FFFFFF", body: extra, size: 17 });
+  card(s, { x: M, y: Y(1.7), w: W - 2 * M, h, body, size: 18 });
+  if (extra) card(s, { x: M, y: Y(1.7) + h + 0.25, w: W - 2 * M, h: 1.45, fill: "FFFFFF", body: extra, size: 17 });
   return s;
 }
 
@@ -713,7 +717,7 @@ backup("جایگاه در کارهای پیشین", [
   { text: "لیم و همکاران (۲۰۰۹): همان خانواده‌ی مسئله — سیگنالی که کنشِ کنترل‌گر آن را جابه‌جا می‌کند.", options: { bold: true } },
   "در کار آنان علت، درشتی گام کنشگر است (۱ به ۲ ماشین یعنی دو برابر ظرفیت) و درمان، پهن‌تر کردن بازه‌ی هدف در خوشه‌های کوچک: یعنی میراسازی.",
   "در این پروژه علت، حافظه‌ی پیش‌بینی‌کننده است و درمان، عوض کردن سیگنال — چون میراسازی همان چیزی است که مسئله را پنهان می‌کند.",
-], ["پادالا و همکاران (۲۰۰۷) و علی‌الدین و همکاران (۲۰۱۲) نیز مقیاس‌گذاری را مسئله‌ی کنترل می‌بینند، اما پایداری سیگنالِ پیش‌بینی را بررسی نمی‌کنند."]);
+], ["پادالا و همکاران (۲۰۰۷) و علی‌الدین و همکاران (۲۰۱۲) نیز مقیاس‌گذاری را مسئله‌ی کنترل می‌بینند، اما پایداری سیگنالِ پیش‌بینی را بررسی نمی‌کنند."], 2.4);
 
 // pptxgenjs writes one typeface into all three script slots of every run, so a Latin
 // word inside Persian text is asked for from B Nazanin — which has no Latin glyphs at
