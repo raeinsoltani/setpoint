@@ -240,8 +240,10 @@ case "${1:-}" in
     ;;
   stage)
     # The ticker, with a short command pane under it, so the room sees each command.
+    # The command goes to tmux as separate words, which it runs without a shell: as
+    # one string a shell splits it, and the repo path has a space in it.
     tmux kill-session -t setpoint-demo 2>/dev/null || true
-    tmux new-session -d -s setpoint-demo -c "$HERE" "$HERE/demo.sh watch"
+    tmux new-session -d -s setpoint-demo -c "$HERE" "$HERE/demo.sh" watch
     tmux split-window -v -l 4 -t setpoint-demo -c "$HERE"
     tmux set -t setpoint-demo status off >/dev/null
     exec tmux attach -t setpoint-demo
