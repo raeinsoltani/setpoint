@@ -274,7 +274,7 @@ function stat(s, { x, y, w, value, label, color = GOOD, size = 44 }) {
     ["ناحیه‌ی مرده", "Dead-band", "انحراف کمتر از ۱۰٪ از هدف نادیده گرفته می‌شود"],
     ["تغییر جهت", "Direction Reversal", "تغییر تعداد نمونه‌ها در خلاف جهت تغییر پیشین"],
     ["نقض کیفیت خدمت", "SLA Violation", "درصد زمانی که بار هر نمونه از ۱۱۰ درخواست بر ثانیه فراتر رود"],
-    ["کم‌تأمین منابع", "Under-provisioning", "کمبود نمونه نسبت به نیاز، بر حسب نمونه-ثانیه"],
+    ["تخصیص ناکافی منابع", "Under-provisioning", "کمبود نمونه نسبت به نیاز، بر حسب نمونه-ثانیه (در پایان‌نامه: کم‌تأمین منابع)"],
     ["زمان واکنش", "Reaction Time", "میانه‌ی فاصله‌ی هر پله‌ی بار تا رسیدن ناوگان به نیاز"],
     ["آزمون حذفی", "Ablation", "اجرای همان سیاست با میراگر خاموش"],
   ];
@@ -511,7 +511,7 @@ function stat(s, { x, y, w, value, label, color = GOOD, size = 44 }) {
 {
   const s = slide();
   title(s, "نتایج مقایسه‌ای: سیاست پیش‌بینانه‌ی درست");
-  const head = ["الگوی بار", "نقض (پیش‌بینانه)", "نقض (خط مبنا)", "کم‌تأمین (پیش‌بینانه)", "کم‌تأمین (خط مبنا)", "ظرفیت بیشتر"];
+  const head = ["الگوی بار", "نقض (پیش‌بینانه)", "نقض (خط مبنا)", "تخصیص ناکافی\n(پیش‌بینانه)", "تخصیص ناکافی\n(خط مبنا)", "ظرفیت بیشتر"];
   const rows = [
     ["روزانه", "۰/۰٪", "۴/۷٪", "۲۴۵", "۱،۰۷۰", "۵/۷٪"],
     ["شیب", "۰/۰٪", "۴/۷٪", "۲۷۰", "۱،۲۳۰", "۱۲/۳٪"],
@@ -519,7 +519,20 @@ function stat(s, { x, y, w, value, label, color = GOOD, size = 44 }) {
     ["انفجاری", "۱/۱٪", "۴/۴٪", "۹۶۰", "۱،۲۶۰", "۲۰/۲٪"],
   ];
   const cell = (t, o = {}) => ({ text: t, options: { fontFace: FA, align: "center", rtlMode: true, ...o } });
-  const table = [head.slice().reverse().map((h) => cell(h, { bold: true, color: "FFFFFF", fill: { color: DARK }, fontSize: 14 }))]
+  // A header that breaks before its parenthesis puts "(...)" in a run of its own, and
+  // PowerPoint mirrors a bracket pair that opens and closes a run -- the slide 8 title
+  // quirk again. An rtl flag, a separate paragraph, or marks around the run do not
+  // help, so as on slide 8 the pair is written back to front and displays the right
+  // way round. The soft break keeps both lines in one paragraph.
+  const hOpt = { bold: true, color: "FFFFFF", fill: { color: DARK }, fontSize: 14 };
+  const flipped = (t) => (/^\(.*\)$/.test(t) ? ")" + t.slice(1, -1) + "(" : t);
+  const headCell = (h) => (h.includes("\n")
+    ? cell(h.split("\n").map((t, i) => ({
+      text: i === 0 ? t : flipped(t),
+      options: { fontFace: FA, rtlMode: true, align: "center", softBreakBefore: i > 0, ...hOpt },
+    })), hOpt)
+    : cell(h, hOpt));
+  const table = [head.slice().reverse().map(headCell)]
     .concat(rows.map((r) => r.slice().reverse().map((t, i) => cell(t, {
       fontSize: 15,
       color: i === 5 ? INK : (i === 4 || i === 2 ? GOOD : INK),
@@ -529,10 +542,10 @@ function stat(s, { x, y, w, value, label, color = GOOD, size = 44 }) {
     x: M, y: Y(1.65), w: W - 2 * M, colW: Array(6).fill((W - 2 * M) / 6),
     rowH: 0.52, border: { type: "solid", color: RULE, pt: 0.75 }, fill: { color: "FFFFFF" }, valign: "middle",
   });
-  s.addText("خط مبنا در این جدول hpa-custom است. کم‌تأمین منابع بر حسب نمونه-ثانیه، و «ظرفیت بیشتر» یعنی نمونه-ثانیه‌ی اضافی نسبت به همان خط مبنا.",
+  s.addText("خط مبنا در این جدول hpa-custom است. تخصیص ناکافی منابع بر حسب نمونه-ثانیه، و «ظرفیت بیشتر» یعنی نمونه-ثانیه‌ی اضافی نسبت به همان خط مبنا.",
     fa({ x: M, y: Y(4.55), w: W - 2 * M, h: 0.4, fontSize: 14, color: MUTED }));
   card(s, { x: M, y: Y(5.05), w: W - 2 * M, h: 1.0, fill: "FFFFFF",
-    body: [{ text: "در میان بازوهای خودکار، کم‌ترین کم‌تأمین روی هر چهار الگو و کم‌ترین یا هم‌تراز کم‌ترین نقض — و زمان واکنش ۲۷/۵ ثانیه در برابر ۱۱۲/۵ ثانیه روی الگوی روزانه.", options: { bold: true } }], size: 17 });
+    body: [{ text: "در میان بازوهای خودکار، کم‌ترین تخصیص ناکافی روی هر چهار الگو و کم‌ترین یا هم‌تراز کم‌ترین نقض — و زمان واکنش ۲۷/۵ ثانیه در برابر ۱۱۲/۵ ثانیه روی الگوی روزانه.", options: { bold: true } }], size: 17 });
 }
 
 /* ------------------------------------------------- 11. comparison figure */
@@ -633,7 +646,7 @@ function stat(s, { x, y, w, value, label, color = GOOD, size = 44 }) {
   title(s, "مبادله، نه برتری مطلق");
   const w = (W - 2 * M - 0.4) / 2;
   card(s, { x: W - M - w, y: Y(1.6), w, h: 2.3, head: "پیش‌بینی چه می‌خرد", headColor: GOOD,
-    body: ["کم‌ترین کم‌تأمین منابع در میان بازوهای خودکار، روی هر چهار الگو.", "زمان واکنش ۲۰ تا ۳۵ ثانیه در برابر ۳۲/۵ تا ۱۲۷/۵ ثانیه."], size: 17 });
+    body: ["کم‌ترین تخصیص ناکافی منابع در میان بازوهای خودکار، روی هر چهار الگو.", "زمان واکنش ۲۰ تا ۳۵ ثانیه در برابر ۳۲/۵ تا ۱۲۷/۵ ثانیه."], size: 17 });
   card(s, { x: M, y: Y(1.6), w, h: 2.3, head: "بهایش چیست", headColor: BAD,
     body: ["۵/۷ تا ۲۰/۲ درصد ظرفیت بیشتر از hpa-custom.", "تأمین ایستا در سطح اوج کیفیت خدمت بهتری می‌دهد — با ظرفیتی به‌مراتب بیشتر."], size: 17 });
   card(s, { x: M, y: Y(4.2), w: W - 2 * M, h: 1.6, fill: "FFFFFF",
