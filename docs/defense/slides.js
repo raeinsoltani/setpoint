@@ -180,6 +180,38 @@ function formula(s, name, { x, y, w, align = "center", boxW }) {
   return h;
 }
 
+// The workloads come from the functions k6 runs, not from a drawing of them, so the
+// thumbnail on the method slide cannot drift from the load the runs were given — the
+// same reason patterns.js exists. It reads k6's __ENV when it loads; an empty one is
+// the unscaled timeline. It is an ES module, and require() of one needs Node 22.12+.
+globalThis.__ENV = globalThis.__ENV || {};
+const PATTERNS = require(path.join(__dirname, "../../test/load/lib/patterns.js"));
+// Shared by all four thumbnails, so a taller curve is more load, not a different axis.
+const LOAD_MAX = 1300;
+
+// A workload as a filled curve: time left to right across the run, as in the thesis
+// figures. Sampled per second, keeping the corners of every step so a jump stays
+// vertical instead of becoming a slope, and every 15th second of the smooth stretches.
+function loadCurve(s, fn, { x, y, w, h }) {
+  const T = PATTERNS.DURATION;
+  const v = (t) => fn(Math.min(t, T));
+  const curve = [];
+  for (let t = 0; t <= T; t += 1) {
+    const jump = Math.abs(v(t) - v(t - 1)) > 50 || Math.abs(v(t + 1) - v(t)) > 50;
+    if (t === 0 || t === T || jump || t % 15 === 0) {
+      curve.push({ x: (t / T) * w, y: h - (v(t) / LOAD_MAX) * h });
+    }
+  }
+  s.addShape(pres.ShapeType.custGeom, {
+    x, y, w, h, fill: { color: INK, transparency: 88 }, line: { type: "none" },
+    points: [{ x: 0, y: h }, ...curve, { x: w, y: h }, { close: true }],
+  });
+  s.addShape(pres.ShapeType.custGeom, {
+    x, y, w, h, line: { color: INK, width: 1.75 }, points: curve,
+  });
+  s.addShape(pres.ShapeType.line, { x, y: y + h, w, h: 0, line: { color: MUTED, width: 0.75 } });
+}
+
 // A big number with a label under it.
 function stat(s, { x, y, w, value, label, color = GOOD, size = 44 }) {
   s.addText(value, fa({ x, y, w, h: 0.8, fontSize: size, bold: true, color, align: "center", fontFace: FA }));
@@ -389,15 +421,35 @@ function stat(s, { x, y, w, value, label, color = GOOD, size = 44 }) {
     { v: "۱۸۰۰ ث", l: "هر اجرا" },
   ];
   const sw = (W - 2 * M - 1.2) / 4;
-  stats.forEach((st, i) => stat(s, { x: W - M - sw - i * (sw + 0.4), y: Y(1.6), w: sw, value: st.v, label: st.l }));
+  stats.forEach((st, i) => stat(s, { x: W - M - sw - i * (sw + 0.4), y: 1.45, w: sw, value: st.v, label: st.l }));
   card(s, {
-    x: M, y: Y(3.35), w: W - 2 * M, h: 2.5, head: "چارچوب آزمایش، نه فقط اجرای بار", headColor: GOOD,
+    x: M, y: 2.95, w: W - 2 * M, h: 1.62, head: "چارچوب آزمایش، نه فقط اجرای بار", headColor: GOOD,
     body: [
       "هر اجرا: برچیدن کنترل‌گرها ← اعمال دقیقاً یک بازو ← بازنشانی ناوگان ← گرم‌کردن ← اندازه‌گیری ← نشست ← ثبت سری‌ها ← بررسی اعتبار.",
       "اثرانگشت تصویر پیش از هر اجرا مقابله می‌شود؛ اجرای معیوب با ثبت دلیل کنار گذاشته می‌شود.",
-      "الگوها: روزانه (هموار)، شیب، جهشی و انفجاری (پله‌ای).",
     ],
-    size: 17,
+    size: 15,
+  });
+
+  // The four workloads, each as its shape over the run. Same order as the table on the
+  // next slide, reading right to left.
+  const py = 4.75, ph = 2.3;
+  card(s, { x: M, y: py, w: W - 2 * M, h: ph, head: "چهار الگوی بار", headColor: GOOD });
+  s.addText("افقی: زمان، ۳۰ دقیقه — عمودی: درخواست بر ثانیه، با مقیاس یکسان", fa({
+    x: M + 0.25, y: py + 0.24, w: 6.5, h: 0.4, fontSize: 12.5, color: MUTED, align: "left",
+  }));
+  const pats = [
+    { fn: PATTERNS.diurnal, name: "روزانه", desc: "اوج و افت هموار، مثل ترافیک یک روز" },
+    { fn: PATTERNS.ramp, name: "شیب", desc: "رشد پیوسته از ۲۰۰ تا ۱۲۰۰" },
+    { fn: PATTERNS.spike, name: "جهشی", desc: "پرش ناگهانی به بیش از ۴ برابر" },
+    { fn: PATTERNS.bursty, name: "انفجاری", desc: "سه انفجار، هر یک با دره‌ای پس از آن" },
+  ];
+  const gut = 0.45, cw = (W - 2 * M - 0.5 - 3 * gut) / 4;
+  pats.forEach((p, i) => {
+    const x = W - M - 0.25 - cw - i * (cw + gut);
+    loadCurve(s, p.fn, { x, y: py + 0.78, w: cw, h: 0.82 });
+    s.addText(p.name, fa({ x, y: py + 1.66, w: cw, h: 0.34, fontSize: 16, bold: true, align: "center" }));
+    s.addText(p.desc, fa({ x, y: py + 1.96, w: cw, h: 0.28, fontSize: 12, color: MUTED, align: "center" }));
   });
 }
 
