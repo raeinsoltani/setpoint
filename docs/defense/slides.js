@@ -616,7 +616,7 @@ function stat(s, { x, y, w, value, label, color = GOOD, size = 44 }) {
 /* ------------------------------------------------- 12. ablation */
 {
   const s = slide();
-  title(s, "آزمون حذفی: میراگر را خاموش کن");
+  title(s, "آزمون حذفی: خاموش کردن میراگر");
   const abW = 6.4, abH = abW * (1120 / 1260);
   s.addImage({ path: path.join(IMG, "ablation-1.png"), x: W - M - abW, y: 1.5, w: abW, h: abH });
   stat(s, { x: M, y: Y(1.6), w: 3.6, value: "۱۱۹", label: "تغییر جهت از ۱۲۰ چرخه‌ی کنترل", color: BAD, size: 52 });
