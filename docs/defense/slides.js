@@ -511,41 +511,80 @@ function stat(s, { x, y, w, value, label, color = GOOD, size = 44 }) {
 {
   const s = slide();
   title(s, "نتایج مقایسه‌ای: سیاست پیش‌بینانه‌ی درست");
-  const head = ["الگوی بار", "نقض (پیش‌بینانه)", "نقض (خط مبنا)", "تخصیص ناکافی\n(پیش‌بینانه)", "تخصیص ناکافی\n(خط مبنا)", "ظرفیت بیشتر"];
-  const rows = [
-    ["روزانه", "۰/۰٪", "۴/۷٪", "۲۴۵", "۱،۰۷۰", "۵/۷٪"],
-    ["شیب", "۰/۰٪", "۴/۷٪", "۲۷۰", "۱،۲۳۰", "۱۲/۳٪"],
-    ["جهشی", "۰/۶٪", "۲/۲٪", "۲۷۰", "۴۷۵", "۱۶/۵٪"],
-    ["انفجاری", "۱/۱٪", "۴/۴٪", "۹۶۰", "۱،۲۶۰", "۲۰/۲٪"],
+  // The comparison as bars rather than a table: one pair per workload, ours beside
+  // hpa-custom, so "lower on all four" shows before a number is read. Each chart has its
+  // own scale and every bar carries its value, so no axis is drawn. The baseline is
+  // grey, not red: red is the broken policy on every other slide.
+  const BASE = "A9B5C1";
+  const rows = [ // violation %, under-allocation in instance-seconds: [ours, hpa-custom]
+    { fn: PATTERNS.diurnal, name: "روزانه", v: [0.0, 4.7], u: [245, 1070], cap: "۵/۷٪" },
+    { fn: PATTERNS.ramp, name: "شیب", v: [0.0, 4.7], u: [270, 1230], cap: "۱۲/۳٪" },
+    { fn: PATTERNS.spike, name: "جهشی", v: [0.6, 2.2], u: [270, 475], cap: "۱۶/۵٪" },
+    { fn: PATTERNS.bursty, name: "انفجاری", v: [1.1, 4.4], u: [960, 1260], cap: "۲۰/۲٪" },
   ];
-  const cell = (t, o = {}) => ({ text: t, options: { fontFace: FA, align: "center", rtlMode: true, ...o } });
-  // A header that breaks before its parenthesis puts "(...)" in a run of its own, and
-  // PowerPoint mirrors a bracket pair that opens and closes a run -- the slide 8 title
-  // quirk again. An rtl flag, a separate paragraph, or marks around the run do not
-  // help, so as on slide 8 the pair is written back to front and displays the right
-  // way round. The soft break keeps both lines in one paragraph.
-  const hOpt = { bold: true, color: "FFFFFF", fill: { color: DARK }, fontSize: 14 };
-  const flipped = (t) => (/^\(.*\)$/.test(t) ? ")" + t.slice(1, -1) + "(" : t);
-  const headCell = (h) => (h.includes("\n")
-    ? cell(h.split("\n").map((t, i) => ({
-      text: i === 0 ? t : flipped(t),
-      options: { fontFace: FA, rtlMode: true, align: "center", softBreakBefore: i > 0, ...hOpt },
-    })), hOpt)
-    : cell(h, hOpt));
-  const table = [head.slice().reverse().map(headCell)]
-    .concat(rows.map((r) => r.slice().reverse().map((t, i) => cell(t, {
-      fontSize: 15,
-      color: i === 5 ? INK : (i === 4 || i === 2 ? GOOD : INK),
-      bold: i === 5 || i === 4 || i === 2,
-    }))));
-  s.addTable(table, {
-    x: M, y: Y(1.65), w: W - 2 * M, colW: Array(6).fill((W - 2 * M) / 6),
-    rowH: 0.52, border: { type: "solid", color: RULE, pt: 0.75 }, fill: { color: "FFFFFF" }, valign: "middle",
+  // Persian digits, "/" as the decimal mark and "،" between thousands, as in the thesis.
+  const faNum = (n, d) => n.toFixed(d).replace(".", "/").replace(/\B(?=(\d{3})+(?!\d))/g, "،")
+    .replace(/\d/g, (c) => "۰۱۲۳۴۵۶۷۸۹"[c]);
+
+  // Right to left: violation first, as the talk reads them.
+  const top = 1.45, ch = 3.3, cw = (W - 2 * M - 0.4) / 2;
+  const charts = [
+    { x: W - M - cw, head: "نقض (درصد زمان)", key: "v", fmt: (n) => faNum(n, 1) + "٪" },
+    { x: M, head: "تخصیص ناکافی (نمونه-ثانیه)", key: "u", fmt: (n) => faNum(n, 0) },
+  ];
+  const barTop = top + 1.0, base = top + 2.4;
+  charts.forEach((c) => {
+    card(s, { x: c.x, y: top, w: cw, h: ch, head: c.head });
+    s.addShape(pres.ShapeType.line, { x: c.x + 0.25, y: base, w: cw - 0.5, h: 0, line: { color: MUTED, width: 0.75 } });
+    const max = Math.max(...rows.flatMap((r) => r[c.key]));
+    const gw = (cw - 0.5) / 4, bw = 0.44;
+    rows.forEach((r, i) => {
+      const gx = c.x + cw - 0.25 - (i + 1) * gw;
+      r[c.key].forEach((val, j) => {
+        // Ours on the right of the pair, so it is read first.
+        const bx = gx + gw / 2 + (j === 0 ? 0.05 : -0.05 - bw);
+        const h = (val / max) * (base - barTop);
+        const color = j === 0 ? GOOD : BASE;
+        if (h > 0) {
+          s.addShape(pres.ShapeType.rect, { x: bx, y: base - h, w: bw, h, fill: { color }, line: { type: "none" } });
+        } else {
+          // A zero is still a result: a flat bar on the axis, not a gap.
+          s.addShape(pres.ShapeType.line, { x: bx, y: base, w: bw, h: 0, line: { color, width: 3 } });
+        }
+        s.addText(c.fmt(val), fa({
+          x: bx - 0.15, y: base - h - 0.32, w: bw + 0.3, h: 0.3, fontSize: 12.5, align: "center",
+          bold: j === 0, color: j === 0 ? GOOD : MUTED,
+        }));
+      });
+      loadCurve(s, r.fn, { x: gx + (gw - 0.95) / 2, y: base + 0.12, w: 0.95, h: 0.36 });
+      s.addText(r.name, fa({ x: gx, y: base + 0.55, w: gw, h: 0.3, fontSize: 14, bold: true, align: "center" }));
+    });
   });
-  s.addText("خط مبنا در این جدول hpa-custom است. تخصیص ناکافی منابع بر حسب نمونه-ثانیه، و «ظرفیت بیشتر» یعنی نمونه-ثانیه‌ی اضافی نسبت به همان خط مبنا.",
-    fa({ x: M, y: Y(4.55), w: W - 2 * M, h: 0.4, fontSize: 14, color: MUTED }));
-  card(s, { x: M, y: Y(5.05), w: W - 2 * M, h: 1.0, fill: "FFFFFF",
-    body: [{ text: "در میان بازوهای خودکار، کم‌ترین تخصیص ناکافی روی هر چهار الگو و کم‌ترین یا هم‌تراز کم‌ترین نقض — و زمان واکنش ۲۷/۵ ثانیه در برابر ۱۱۲/۵ ثانیه روی الگوی روزانه.", options: { bold: true } }], size: 17 });
+
+  // Legend, right to left: ours, then the baseline. The baseline is named, not called
+  // «خط مبنا»: a Persian comma or colon beside a Latin word lands on the wrong side of
+  // its space in PowerPoint, whichever word comes first (slide 20 shows it too).
+  const ly = top + ch + 0.1;
+  [[GOOD, "پیش‌بینانه بر بار کل"], [BASE, "hpa-custom"]].forEach(([color, label], i) => {
+    const x = W - M - 0.22 - i * 3.4;
+    s.addShape(pres.ShapeType.rect, { x, y: ly + 0.09, w: 0.22, h: 0.22, fill: { color }, line: { type: "none" } });
+    s.addText(label, fa({ x: x - 3.0, y: ly, w: 2.9, h: 0.4, fontSize: 15 }));
+  });
+
+  // The cost, per workload, in the same order as the charts.
+  const cy = ly + 0.48, chh = 0.55;
+  card(s, { x: M, y: cy, w: W - 2 * M, h: chh });
+  s.addText("بها: ظرفیت بیشتر از hpa-custom", fa({ x: W - M - 4.45, y: cy, w: 4.2, h: chh, fontSize: 15, bold: true, valign: "middle" }));
+  const iw = (W - 2 * M - 4.7) / 4;
+  rows.forEach((r, i) => {
+    s.addText([
+      { text: r.name + "  ", options: { fontFace: FA, rtlMode: true, align: "center", color: INK } },
+      { text: r.cap, options: { fontFace: FA, rtlMode: true, align: "center", color: GOOD, bold: true } },
+    ], fa({ x: W - M - 4.7 - (i + 1) * iw, y: cy, w: iw, h: chh, fontSize: 15, align: "center", valign: "middle" }));
+  });
+
+  card(s, { x: M, y: cy + chh + 0.13, w: W - 2 * M, h: 1.0, fill: "FFFFFF",
+    body: [{ text: "در میان بازوهای خودکار، کم‌ترین تخصیص ناکافی روی هر چهار الگو و کم‌ترین یا هم‌تراز کم‌ترین نقض، و زمان واکنش ۲۷/۵ ثانیه در برابر ۱۱۲/۵ ثانیه روی الگوی روزانه.", options: { bold: true } }], size: 17 });
 }
 
 /* ------------------------------------------------- 11. comparison figure */
